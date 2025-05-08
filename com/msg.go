@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sync"
 )
 
 // The reserved bytes may be used in the future for passing the
@@ -20,7 +21,7 @@ import (
 // +---------+---------+---------+---------+
 // |                                       |
 // .            ...  body ...              .
-// .              4008 Bytes               .
+// .              4080 Bytes               .
 // .                                       .
 // +---------------------------------------+
 
@@ -33,7 +34,7 @@ type Packet struct {
 	Reserved2 uint16 // 16 bits
 	MsgLength uint32 // 32 bits
 	Offset    uint32 // 32 bits
-	Body      []byte // 4008 bytes
+	Body      []byte // 4080 bytes
 }
 
 func ReadFields(buffer *bytes.Buffer, fields ...any) error {
@@ -85,6 +86,53 @@ func Deserialize(data string) ([]byte, error) {
 	return bytes, nil
 }
 
+type MessageQueue = []Messenger
+
+type Messenger struct {
+	mu      sync.Mutex
+	mtype   uint8
+	packets []Packet
+}
+
+func CreateMessenger() Messenger {
+	return Messenger{
+		mtype: 0,
+	}
+}
+
+// there are 3 types of main messages
+// Each packet already done with the deserialisation part
+// so the following function just combines the bodies or returns error if all packets not here yet
+// PUT key, value, only_if_missing
+// GET key
+// RM key
+
+// returns empty if packets are incomplete otherwise returns string of assembled body
+func (m *Messenger) AssembleMessage(p Packet) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.packets) == 0 {
+		m.mtype = p.MsgType
+	}
+
+	if p.MsgType != m.mtype {
+		return "", fmt.Errorf("packet type mismatch: expected %v, got %v", m.mtype, p.MsgType)
+	}
+
+	m.packets = append(m.packets, p)
+
+	if p.Rest == 0 { // this is the final fragment
+		finalMessage := ""
+		for _, packet := range m.packets {
+			finalMessage += string(packet.Body) + " "
+		}
+		return finalMessage, nil
+	}
+
+	return "", nil
+}
+
 // func TEST1() {
 // 	data := []byte{0x01, 0x00, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1}
 // 	packet, err := ParsePacket(data)
@@ -92,8 +140,9 @@ func Deserialize(data string) ([]byte, error) {
 // 		fmt.Println("Error parsing packet:", err)
 // 		return
 // 	}
-
-// 	assert(packet.MsgLength == len(packet.Body) == 8)
+// 	if packet.MsgLength != len(packet.Body) {
+//  	panic("failed with parsing")
+// 	}
 // }
 //
 // func TEST2() {
@@ -108,5 +157,7 @@ func Deserialize(data string) ([]byte, error) {
 // 	}
 // 	fmt.Println("Deserialized:", deserialized)
 //
-// 	assert(deserialised == originalData)
+//  if (deserialised != originalData) {
+//		panic ("failed with serialisation and deserialisation")
+//	}
 // }
