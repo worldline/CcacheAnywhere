@@ -2,6 +2,7 @@ package main
 
 import (
 	"ccache-backend-client/com"
+	"ccache-backend-client/utils"
 	"fmt"
 	"net"
 	"os"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-type server struct {
+type SocketServer struct {
 	bufferSize      int
 	socketPath      string
 	listener        net.Listener
@@ -17,13 +18,13 @@ type server struct {
 	mu              sync.Mutex
 }
 
-func newServer(socketPath string, bufferSize int) (*server, error) {
+func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
 	l, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &server{
+	return &SocketServer{
 		bufferSize:      bufferSize,
 		socketPath:      socketPath,
 		listener:        l,
@@ -31,7 +32,7 @@ func newServer(socketPath string, bufferSize int) (*server, error) {
 	}, nil
 }
 
-func (s *server) start() {
+func (s *SocketServer) start() {
 	defer s.listener.Close()
 	fmt.Println("Server started, listening on:", s.socketPath)
 
@@ -54,9 +55,10 @@ func (s *server) start() {
 	}
 }
 
-func (s *server) handleConnection(conn net.Conn) {
+func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	msgr := com.CreateMessenger()
+	hndlr := utils.TmpDetermineBackend("http")
+	msgr := CreateMessenger()
 
 	buf := make([]byte, 1024)
 	for {
@@ -67,16 +69,16 @@ func (s *server) handleConnection(conn net.Conn) {
 		}
 
 		if n > 0 {
-			receivedMessage := string(buf[:n])
-			fmt.Printf("Received: %s\n", receivedMessage)
+			messageString := string(buf[:n])
+			fmt.Printf("Received: %s\n", messageString)
 
-			packet, err := com.ParsePacket(buf[:n])
+			packet, err := com.ParsePacket(buf[:n]) // should provide option serialized=true/false
 			if err != nil {
 				fmt.Println("Error with packet format!")
 				continue
 			}
 
-			receivedMessage, err = msgr.AssembleMessage(*packet)
+			receivedMessage, err := msgr.AssembleMessage(*packet)
 
 			if err != nil {
 				fmt.Println("Connection closing!", err)
@@ -84,18 +86,11 @@ func (s *server) handleConnection(conn net.Conn) {
 			}
 
 			// Check for the "setup" message
-			if receivedMessage == "" {
-				_, err := conn.Write([]byte("ACK!")) // Send ACK for "setup"
-				if err != nil {
-					fmt.Printf("Error writing to connection: %v\n", err)
-					return
-				}
+			// maybe construct something like msgr.Handle(receivedMessage, conn)
+			if receivedMessage != nil {
+				msgr.AcknowledgeOnly(conn)
 			} else {
-				_, err := conn.Write([]byte("Send Me!")) // Send ACK for "setup"
-				if err != nil {
-					fmt.Printf("Error writing to connection: %v\n", err)
-					return
-				}
+				receivedMessage.Write()
 			}
 		}
 
@@ -103,7 +98,7 @@ func (s *server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *server) monitorInactivity() {
+func (s *SocketServer) monitorInactivity() {
 	for {
 		select {
 		case <-s.inactivityTimer.C:
@@ -114,7 +109,7 @@ func (s *server) monitorInactivity() {
 	}
 }
 
-func (s *server) resetInactivityTimer() {
+func (s *SocketServer) resetInactivityTimer() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -124,7 +119,7 @@ func (s *server) resetInactivityTimer() {
 	s.inactivityTimer.Reset(inactivityTimeout)
 }
 
-func (s *server) cleanup() {
+func (s *SocketServer) cleanup() {
 	if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
 		fmt.Printf("Error removing socket file: %s\n", err)
 	}

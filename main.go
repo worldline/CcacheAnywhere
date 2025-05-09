@@ -11,6 +11,7 @@ import (
 
 var FIXED_BUF_SIZE int
 var SOCKET_PATH string
+var BACKEND_TYPE string
 
 const inactivityTimeout = 30 * time.Second
 
@@ -38,11 +39,14 @@ func startServer() {
 
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Println("Usage: daemon <socket_path> <buffer_size> [optional.. attributes]")
+		fmt.Println("Usage: daemon <socket_path> <buffer_size> <url> [optional.. attributes]")
 		os.Exit(1)
 	}
 
 	SOCKET_PATH = os.Args[1]
 	FIXED_BUF_SIZE, _ = strconv.Atoi(os.Args[2])
+	if len(os.Args) > 2 {
+		SOCKET_PATH = os.Args[3]
+	}
 	startServer()
 }
