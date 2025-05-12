@@ -8,47 +8,56 @@ import (
 // Message interface defines the methods for messages
 type Message interface {
 	Write(b Backend) error
-	Read(data []byte) error
+	Read() []byte
+	Create([]byte) error
 }
 
 type TestMessage struct {
 	mc string
 }
 
+func (m TestMessage) Create(body []byte) error {
+	return nil
+}
+
 func (m TestMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m TestMessage) Read(data []byte) error {
-	return m.readImpl(data)
+func (m TestMessage) Read() []byte {
+	return m.readImpl()
 }
 
 func (m TestMessage) writeImpl(any interface{}) error {
 	return fmt.Errorf("writing TestMessage to backend")
 }
 
-func (m TestMessage) readImpl(data []byte) error {
-	return fmt.Errorf("reading TestMessage to backend")
+func (m TestMessage) readImpl() []byte {
+	return []byte{}
 }
 
 type SetupMessage struct {
 	mc string
 }
 
+func (m SetupMessage) Create(body []byte) error {
+	return nil
+}
+
 func (m SetupMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m SetupMessage) Read(data []byte) error {
-	return m.readImpl(data)
+func (m SetupMessage) Read() []byte {
+	return m.readImpl()
 }
 
 func (m SetupMessage) writeImpl(b Backend) error {
 	return fmt.Errorf("writing SetupMessage to backend")
 }
 
-func (m SetupMessage) readImpl(data []byte) error {
-	return fmt.Errorf("reading SetupMessage to backend")
+func (m SetupMessage) readImpl() []byte {
+	return []byte{}
 }
 
 type GetMessage struct {
@@ -56,15 +65,21 @@ type GetMessage struct {
 	mc  string
 }
 
-func (m GetMessage) Write(b Backend) error {
+func (m *GetMessage) Create(body []byte) error {
+	m.mc = "Get Message"
+	m.key = body[:20]
+	return nil
+}
+
+func (m *GetMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m GetMessage) Read(data []byte) error {
-	return m.readImpl(data)
+func (m *GetMessage) Read() []byte {
+	return m.readImpl()
 }
 
-func (m GetMessage) writeImpl(b Backend) error {
+func (m *GetMessage) writeImpl(b Backend) error {
 	_, err := b.Get(m.key)
 	if err != nil {
 		return fmt.Errorf("writing GetMessage to backend")
@@ -73,8 +88,8 @@ func (m GetMessage) writeImpl(b Backend) error {
 	return nil
 }
 
-func (m GetMessage) readImpl(data []byte) error {
-	return fmt.Errorf("reading GetMessage to backend")
+func (m *GetMessage) readImpl() []byte {
+	return []byte{}
 }
 
 type PutMessage struct {
@@ -84,15 +99,21 @@ type PutMessage struct {
 	mc            string
 }
 
-func (m PutMessage) Write(b Backend) error {
+func (m *PutMessage) Create(body []byte) error {
+	m.mc = "Put Message"
+	m.key = body[:20]
+	return nil
+}
+
+func (m *PutMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m PutMessage) Read(data []byte) error {
-	return m.readImpl(data)
+func (m *PutMessage) Read() []byte {
+	return m.readImpl()
 }
 
-func (m PutMessage) writeImpl(b Backend) error {
+func (m *PutMessage) writeImpl(b Backend) error {
 	_, err := b.Put(m.key, m.value, m.onlyIfMissing)
 	if err != nil {
 		return fmt.Errorf("writing PutMessage to backend")
@@ -101,8 +122,8 @@ func (m PutMessage) writeImpl(b Backend) error {
 	return nil
 }
 
-func (m PutMessage) readImpl(data []byte) error {
-	return fmt.Errorf("reading PutMessage to backend")
+func (m *PutMessage) readImpl() []byte {
+	return []byte{}
 }
 
 type RmMessage struct {
@@ -110,15 +131,21 @@ type RmMessage struct {
 	mc  string
 }
 
-func (m RmMessage) Write(b Backend) error {
+func (m *RmMessage) Create(body []byte) error {
+	m.mc = "Remove Message"
+	m.key = body[:20]
+	return nil
+}
+
+func (m *RmMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m RmMessage) Read(data []byte) error {
-	return m.readImpl(data)
+func (m *RmMessage) Read() []byte {
+	return m.readImpl()
 }
 
-func (m RmMessage) writeImpl(b Backend) error {
+func (m *RmMessage) writeImpl(b Backend) error {
 	_, err := b.Remove(m.key)
 	if err != nil {
 		return fmt.Errorf("writing RmMessage to backend")
@@ -127,8 +154,8 @@ func (m RmMessage) writeImpl(b Backend) error {
 	return nil
 }
 
-func (m RmMessage) readImpl(data []byte) error {
-	return fmt.Errorf("reading RmMessage to backend")
+func (m *RmMessage) readImpl() []byte {
+	return []byte{}
 }
 
 // func TEST1() {
