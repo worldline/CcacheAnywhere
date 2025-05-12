@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -21,7 +22,7 @@ func getUrl() string {
 	return "gs://kls.net"
 }
 
-func formatDigest(key string) string {
+func formatDigest(key []byte) string {
 	return "string"
 }
 
@@ -76,8 +77,8 @@ func (h *HttpStorageBackend) RedactSecrets(attributes []Attribute) {
 
 // TODO define a backendATTributes struct as argument for create
 // each create deals with it as it wishes
-func (s *HttpStorageBackend) Create(url string, attributes []Attribute) HttpStorageBackend {
-	s.urlPath = getUrlPath(url) // TODO create URL object
+func CreateHTTPBackend(url string, attributes []Attribute) HttpStorageBackend {
+	// urlPath := getUrlPath(url) // TODO create URL object
 
 	defaultHeaders := newHttpHeaders()
 	for _, attr := range attributes {
@@ -112,7 +113,7 @@ func (s *HttpStorageBackend) Create(url string, attributes []Attribute) HttpStor
 	return HttpStorageBackend{client: &httpclient, bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
 }
 
-func (h *HttpStorageBackend) GetEntryPath(key string) string {
+func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 	switch h.layout {
 	case bazel:
 		// Mimic hex representation of a SHA256 hash value.
@@ -144,8 +145,8 @@ func (h *HttpStorageBackend) GetEntryPath(key string) string {
 	}
 }
 
-func (h *HttpStorageBackend) Remove(key string) (bool, error) {
-	urlPath := h.GetEntryPath(key)
+func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
+	urlPath := h.getEntryPath(key)
 	req, err := http.NewRequest("DELETE", urlPath, nil)
 	if err != nil {
 		return false, err
@@ -166,8 +167,8 @@ func (h *HttpStorageBackend) Remove(key string) (bool, error) {
 	return true, nil
 }
 
-func (h *HttpStorageBackend) Get(key string) (string, error) {
-	urlPath := h.GetEntryPath(key)
+func (h *HttpStorageBackend) Get(key []byte) (string, error) {
+	urlPath := h.getEntryPath(key)
 	req, err := http.NewRequest("GET", urlPath, nil)
 	if err != nil {
 		return err.Error(), err
@@ -183,8 +184,8 @@ func (h *HttpStorageBackend) Get(key string) (string, error) {
 	return string(body), err
 }
 
-func (h *HttpStorageBackend) Put(key string, data io.Reader, onlyIfMissing bool) (bool, error) {
-	urlPath := h.GetEntryPath(key)
+func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (bool, error) {
+	urlPath := h.getEntryPath(key)
 
 	if onlyIfMissing {
 		res, err := h.client.Head(urlPath)
@@ -203,7 +204,8 @@ func (h *HttpStorageBackend) Put(key string, data io.Reader, onlyIfMissing bool)
 	}
 
 	// contentType := "application/octet-stream"
-	req, err := http.NewRequest("PUT", urlPath, data)
+	reader := bytes.NewReader(data)
+	req, err := http.NewRequest("PUT", urlPath, reader)
 	if err != nil {
 		log.Fatal(err)
 		return false, err
