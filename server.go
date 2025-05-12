@@ -57,10 +57,10 @@ func (s *SocketServer) start() {
 
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	hndlr := utils.TmpDetermineBackend("http")
-	msgr := CreateMessenger()
+	var socketInterface utils.SocketHandler
+	backendInterface := utils.CreateBackend("http")
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, com.FIXED_BUF_SIZE)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -78,7 +78,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 				continue
 			}
 
-			receivedMessage, err := msgr.AssembleMessage(*packet)
+			receivedMessage, err := socketInterface.Assemble(*packet)
 
 			if err != nil {
 				fmt.Println("Connection closing!", err)
@@ -88,9 +88,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 			// Check for the "setup" message
 			// maybe construct something like msgr.Handle(receivedMessage, conn)
 			if receivedMessage != nil {
-				msgr.AcknowledgeOnly(conn)
-			} else {
-				receivedMessage.Write()
+				backendInterface.Handle(receivedMessage)
+				socketInterface.Handle(receivedMessage)
 			}
 		}
 

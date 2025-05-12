@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ccache-backend-client/com"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,14 +10,12 @@ import (
 	"time"
 )
 
-var FIXED_BUF_SIZE int
-var SOCKET_PATH string
 var BACKEND_TYPE string
 
 const inactivityTimeout = 30 * time.Second
 
 func startServer() {
-	server, err := newServer(SOCKET_PATH, FIXED_BUF_SIZE)
+	server, err := newServer(com.SOCKET_PATH, com.FIXED_BUF_SIZE)
 	defer server.cleanup()
 
 	if err != nil {
@@ -43,10 +42,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	SOCKET_PATH = os.Args[1]
-	FIXED_BUF_SIZE, _ = strconv.Atoi(os.Args[2])
+	com.SOCKET_PATH = os.Args[1]
+	com.FIXED_BUF_SIZE, _ = strconv.Atoi(os.Args[2])
 	if len(os.Args) > 2 {
-		SOCKET_PATH = os.Args[3]
+		BACKEND_TYPE = os.Args[3]
 	}
 	startServer()
 }
