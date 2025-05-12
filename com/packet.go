@@ -6,6 +6,9 @@ import (
 	"fmt"
 )
 
+var FIXED_BUF_SIZE int
+var SOCKET_PATH string
+
 // The reserved bytes may be used in the future for passing the fd
 // 0         8        16        24        32
 // +---------+---------+---------+---------+
@@ -35,13 +38,56 @@ type Packet struct {
 	Body      []byte // 4080 bytes
 }
 
-func ReadFields(buffer *bytes.Buffer, fields ...any) error {
+func readFields(buffer *bytes.Buffer, fields ...any) error {
 	for _, field := range fields {
 		if err := binary.Read(buffer, binary.BigEndian, field); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func padBytes(data []byte, bufferSize int) []byte {
+	if len(data) >= bufferSize {
+		return data[:bufferSize]
+	}
+
+	paddedData := make([]byte, bufferSize)
+	copy(paddedData, data)
+
+	return paddedData
+}
+
+func CreatePacket(data []byte, msgtype uint8, ackId uint8, msgId uint8, remainder uint8) Packet {
+	// TODO some checks to the inputs
+	pdata := padBytes(data, FIXED_BUF_SIZE)
+	return Packet{
+		MsgType:   msgtype,
+		Rest:      remainder,
+		MsgID:     msgId,
+		Ack:       ackId,
+		Reserved1: 0,
+		Reserved2: 0,
+		MsgLength: uint32(len(data)),
+		Offset:    0,
+		Body:      pdata,
+	}
+}
+
+func (p *Packet) Deparse() []byte {
+	var deparsedMessage []byte
+
+	deparsedMessage = append(deparsedMessage, Serialize(p.MsgType)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Rest)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.MsgID)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Ack)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Reserved1)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Reserved2)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.MsgLength)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Offset)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.Body)...)
+
+	return deparsedMessage
 }
 
 func ParsePacket(data []byte) (*Packet, error) {
@@ -56,7 +102,7 @@ func ParsePacket(data []byte) (*Packet, error) {
 	buffer := bytes.NewBuffer(data)
 	packet := &Packet{}
 
-	if err := ReadFields(buffer,
+	if err := readFields(buffer,
 		&packet.MsgType,
 		&packet.Rest,
 		&packet.Reserved1,

@@ -5,12 +5,12 @@ import (
 	"fmt"
 )
 
-func Serialize(data []byte) string {
-	return fmt.Sprintf("%X", data)
+func Serialize(data any) []byte {
+	return fmt.Appendf(nil, "%X", data)
 }
 
-func Deserialize(any interface{}) ([]byte, error) {
-	switch v := any.(type) {
+func Deserialize(data any) ([]byte, error) {
+	switch v := data.(type) {
 	case string:
 		return DeserializeString(v)
 	case []byte:
