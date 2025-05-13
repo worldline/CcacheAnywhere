@@ -3,6 +3,7 @@ package backend
 import (
 	// "ccache-backend-client/storage"
 	"fmt"
+	"strconv"
 )
 
 // Message interface defines the methods for messages
@@ -16,23 +17,23 @@ type TestMessage struct {
 	mc string
 }
 
-func (m TestMessage) Create(body []byte) error {
+func (m *TestMessage) Create(body []byte) error {
 	return nil
 }
 
-func (m TestMessage) Write(b Backend) error {
+func (m *TestMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m TestMessage) Read() []byte {
+func (m *TestMessage) Read() []byte {
 	return m.readImpl()
 }
 
-func (m TestMessage) writeImpl(any interface{}) error {
+func (m *TestMessage) writeImpl(b Backend) error {
 	return fmt.Errorf("writing TestMessage to backend")
 }
 
-func (m TestMessage) readImpl() []byte {
+func (m *TestMessage) readImpl() []byte {
 	return []byte{}
 }
 
@@ -40,23 +41,23 @@ type SetupMessage struct {
 	mc string
 }
 
-func (m SetupMessage) Create(body []byte) error {
+func (m *SetupMessage) Create(body []byte) error {
 	return nil
 }
 
-func (m SetupMessage) Write(b Backend) error {
+func (m *SetupMessage) Write(b Backend) error {
 	return m.writeImpl(b)
 }
 
-func (m SetupMessage) Read() []byte {
+func (m *SetupMessage) Read() []byte {
 	return m.readImpl()
 }
 
-func (m SetupMessage) writeImpl(b Backend) error {
+func (m *SetupMessage) writeImpl(b Backend) error {
 	return fmt.Errorf("writing SetupMessage to backend")
 }
 
-func (m SetupMessage) readImpl() []byte {
+func (m *SetupMessage) readImpl() []byte {
 	return []byte{}
 }
 
@@ -67,6 +68,9 @@ type GetMessage struct {
 
 func (m *GetMessage) Create(body []byte) error {
 	m.mc = "Get Message"
+	if len(body) < 20 {
+		return fmt.Errorf("key should be at least of length 20")
+	}
 	m.key = body[:20]
 	return nil
 }
@@ -82,7 +86,7 @@ func (m *GetMessage) Read() []byte {
 func (m *GetMessage) writeImpl(b Backend) error {
 	_, err := b.Get(m.key)
 	if err != nil {
-		return fmt.Errorf("writing GetMessage to backend")
+		return fmt.Errorf("writing GetMessage to backend: %w", err)
 	}
 
 	return nil
@@ -101,7 +105,16 @@ type PutMessage struct {
 
 func (m *PutMessage) Create(body []byte) error {
 	m.mc = "Put Message"
+	if len(body) < 20 {
+		return fmt.Errorf("key should be at least of length 20")
+	}
 	m.key = body[:20]
+	m.value = body[20 : len(body)-1]
+	tmp, err := strconv.ParseBool(string(body[len(body)-1]))
+	if err != nil {
+		return err
+	}
+	m.onlyIfMissing = tmp
 	return nil
 }
 
@@ -133,6 +146,9 @@ type RmMessage struct {
 
 func (m *RmMessage) Create(body []byte) error {
 	m.mc = "Remove Message"
+	if len(body) < 20 {
+		return fmt.Errorf("key should be at least of length 20")
+	}
 	m.key = body[:20]
 	return nil
 }
