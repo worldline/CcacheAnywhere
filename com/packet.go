@@ -38,6 +38,14 @@ type Packet struct {
 	Body      []byte // 4080 bytes
 }
 
+func (p *Packet) Print() {
+	fmt.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.Ack)
+	fmt.Println("Unused: ", p.Reserved1, p.Reserved2)
+	fmt.Println("Length: ", p.MsgLength)
+	fmt.Println("Offset: ", p.Offset)
+	fmt.Println("Body:   ", p.Body)
+}
+
 func readFields(buffer *bytes.Buffer, fields ...any) error {
 	for _, field := range fields {
 		if err := binary.Read(buffer, binary.BigEndian, field); err != nil {
@@ -105,9 +113,9 @@ func ParsePacket(data []byte) (*Packet, error) {
 	if err := readFields(buffer,
 		&packet.MsgType,
 		&packet.Rest,
-		&packet.Reserved1,
 		&packet.MsgID,
 		&packet.Ack,
+		&packet.Reserved1,
 		&packet.Reserved2,
 		&packet.MsgLength,
 		&packet.Offset); err != nil {
