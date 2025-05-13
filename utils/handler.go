@@ -82,7 +82,7 @@ func (h *SocketHandler) Assemble(p com.Packet) (storage.Message, error) {
 
 	var data []byte
 	for _, pck := range h.packets {
-		data = append(data, pck.Body...)
+		data = append(data, pck.Body[:pck.MsgLength]...)
 	}
 
 	var resultMessage storage.Message
