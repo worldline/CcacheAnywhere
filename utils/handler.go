@@ -22,8 +22,8 @@ type SocketHandler struct {
 	node       net.Conn
 	curID      uint8
 	ackID      uint8
-	bufferSize int
 	packets    []com.Packet
+	BufferSize int
 }
 
 func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
@@ -45,10 +45,10 @@ func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
 		msgType = 0
 	}
 
-	chunksNum := (len(data) + h.bufferSize - 1) / h.bufferSize
+	chunksNum := (len(data) + h.BufferSize - 1) / h.BufferSize
 	for i := range chunksNum {
-		start := i * h.bufferSize
-		end := min(start+h.bufferSize, len(data))
+		start := i * h.BufferSize
+		end := min(start+h.BufferSize, len(data))
 
 		packet := com.CreatePacket(data[start:end], msgType, h.ackID, h.curID, uint8(chunksNum-i))
 		packets = append(packets, packet)

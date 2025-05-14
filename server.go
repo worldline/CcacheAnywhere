@@ -57,8 +57,8 @@ func (s *SocketServer) start() {
 
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	var socketInterface utils.SocketHandler
-	backendInterface := utils.CreateBackend("http")
+	socketInterface := utils.SocketHandler{BufferSize: com.FIXED_BUF_SIZE}
+	backendInterface := utils.CreateBackend(BACKEND_TYPE)
 
 	buf := make([]byte, com.FIXED_BUF_SIZE)
 	for {
