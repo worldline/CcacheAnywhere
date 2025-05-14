@@ -5,12 +5,24 @@ import (
 	storage "ccache-backend-client/storage"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 )
 
 func CreateBackend(url string) BackendHandler {
-	tmp := storage.CreateHTTPBackend(url, nil)
-	return BackendHandler{node: &tmp}
+	var tmp storage.Backend
+	prefix := strings.Split(url, ":")[0]
+	switch prefix {
+	case "http":
+		attributes, err := storage.ParseAttributes("http-config.json")
+		if err != nil {
+			panic("Config file issue!")
+		}
+		tmp = storage.CreateHTTPBackend(url, attributes)
+	default:
+		panic("Backend not implemented yet!")
+	}
+	return BackendHandler{node: tmp}
 }
 
 type Handler interface {
