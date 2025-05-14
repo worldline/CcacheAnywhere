@@ -14,10 +14,11 @@ type Message interface {
 }
 
 type TestMessage struct {
-	mc string
+	mid string
 }
 
 func (m *TestMessage) Create(body []byte) error {
+	m.mid = "Test message"
 	return nil
 }
 
@@ -38,10 +39,11 @@ func (m *TestMessage) readImpl() []byte {
 }
 
 type SetupMessage struct {
-	mc string
+	mid string
 }
 
 func (m *SetupMessage) Create(body []byte) error {
+	m.mid = "Setup message"
 	return nil
 }
 
@@ -63,11 +65,11 @@ func (m *SetupMessage) readImpl() []byte {
 
 type GetMessage struct {
 	key []byte
-	mc  string
+	mid string
 }
 
 func (m *GetMessage) Create(body []byte) error {
-	m.mc = "Get Message"
+	m.mid = "Get Message"
 	if len(body) < 20 {
 		return fmt.Errorf("key should be at least of length 20")
 	}
@@ -100,11 +102,11 @@ type PutMessage struct {
 	key           []byte
 	value         []byte
 	onlyIfMissing bool
-	mc            string
+	mid           string
 }
 
 func (m *PutMessage) Create(body []byte) error {
-	m.mc = "Put Message"
+	m.mid = "Put Message"
 	if len(body) < 20 {
 		return fmt.Errorf("key should be at least of length 20")
 	}
@@ -141,11 +143,11 @@ func (m *PutMessage) readImpl() []byte {
 
 type RmMessage struct {
 	key []byte
-	mc  string
+	mid string
 }
 
 func (m *RmMessage) Create(body []byte) error {
-	m.mc = "Remove Message"
+	m.mid = "Remove Message"
 	if len(body) < 20 {
 		return fmt.Errorf("key should be at least of length 20")
 	}
