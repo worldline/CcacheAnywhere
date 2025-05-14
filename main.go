@@ -2,10 +2,10 @@ package main
 
 import (
 	"ccache-backend-client/com"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -37,15 +37,22 @@ func startServer() {
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Usage: daemon <socket_path> <buffer_size> <url> [optional.. attributes]")
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
+			" [optional.. attributes]")
 		os.Exit(1)
 	}
 
-	com.SOCKET_PATH = os.Args[1]
-	com.FIXED_BUF_SIZE, _ = strconv.Atoi(os.Args[2])
-	if len(os.Args) > 2 {
-		BACKEND_TYPE = os.Args[3]
+	flag.StringVar(&com.SOCKET_PATH, "socket", "", "Domain socket path for ccache")
+	flag.IntVar(&com.FIXED_BUF_SIZE, "bufsize", 4096, "Size of socket buffer")
+	flag.StringVar(&BACKEND_TYPE, "url", "", "Backend's url")
+	flag.Parse()
+
+	if com.SOCKET_PATH == "" || BACKEND_TYPE == "" {
+		fmt.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
+			" [optional.. attributes]")
+		os.Exit(1)
 	}
+
 	startServer()
 }
