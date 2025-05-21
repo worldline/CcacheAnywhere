@@ -11,10 +11,16 @@ type Message interface {
 	Write(b Backend) error
 	Read() []byte
 	Create([]byte) error
+	Type() uint8
 }
 
 type TestMessage struct {
-	mid string
+	mid      string
+	response string
+}
+
+func (m *TestMessage) Type() uint8 {
+	return 4
 }
 
 func (m *TestMessage) Create(body []byte) error {
@@ -31,15 +37,25 @@ func (m *TestMessage) Read() []byte {
 }
 
 func (m *TestMessage) writeImpl(b Backend) error {
-	return fmt.Errorf("writing TestMessage to backend")
+	if b != nil {
+		fmt.Println("Backend running successfully!")
+	}
+
+	m.response = "012345000"
+	return nil
 }
 
 func (m *TestMessage) readImpl() []byte {
-	return []byte{}
+	return []byte(m.response)
 }
 
 type SetupMessage struct {
-	mid string
+	mid      string
+	response string
+}
+
+func (m *SetupMessage) Type() uint8 {
+	return 0
 }
 
 func (m *SetupMessage) Create(body []byte) error {
@@ -60,12 +76,17 @@ func (m *SetupMessage) writeImpl(b Backend) error {
 }
 
 func (m *SetupMessage) readImpl() []byte {
-	return []byte{}
+	return []byte(m.response)
 }
 
 type GetMessage struct {
-	key []byte
-	mid string
+	key      []byte
+	mid      string
+	response string
+}
+
+func (m *GetMessage) Type() uint8 {
+	return 1
 }
 
 func (m *GetMessage) Create(body []byte) error {
@@ -86,16 +107,17 @@ func (m *GetMessage) Read() []byte {
 }
 
 func (m *GetMessage) writeImpl(b Backend) error {
-	_, err := b.Get(m.key)
+	_resp, err := b.Get(m.key)
 	if err != nil {
 		return fmt.Errorf("writing GetMessage to backend: %w", err)
 	}
 
+	m.response = _resp
 	return nil
 }
 
 func (m *GetMessage) readImpl() []byte {
-	return []byte{}
+	return []byte(m.response)
 }
 
 type PutMessage struct {
@@ -103,6 +125,11 @@ type PutMessage struct {
 	value         []byte
 	onlyIfMissing bool
 	mid           string
+	response      string
+}
+
+func (m *PutMessage) Type() uint8 {
+	return 2
 }
 
 func (m *PutMessage) Create(body []byte) error {
@@ -112,11 +139,7 @@ func (m *PutMessage) Create(body []byte) error {
 	}
 	m.key = body[:20]
 	m.value = body[20 : len(body)-1]
-	tmp, err := strconv.ParseBool(string(body[len(body)-1]))
-	if err != nil {
-		return err
-	}
-	m.onlyIfMissing = tmp
+	m.onlyIfMissing = int(body[len(body)-1]) != 0
 	return nil
 }
 
@@ -129,21 +152,27 @@ func (m *PutMessage) Read() []byte {
 }
 
 func (m *PutMessage) writeImpl(b Backend) error {
-	_, err := b.Put(m.key, m.value, m.onlyIfMissing)
+	_resp, err := b.Put(m.key, m.value, m.onlyIfMissing)
 	if err != nil {
 		return fmt.Errorf("writing PutMessage to backend")
 	}
 
+	m.response = strconv.FormatBool(_resp)
 	return nil
 }
 
 func (m *PutMessage) readImpl() []byte {
-	return []byte{}
+	return []byte(m.response)
 }
 
 type RmMessage struct {
-	key []byte
-	mid string
+	key      []byte
+	mid      string
+	response string
+}
+
+func (m *RmMessage) Type() uint8 {
+	return 3
 }
 
 func (m *RmMessage) Create(body []byte) error {
@@ -164,16 +193,17 @@ func (m *RmMessage) Read() []byte {
 }
 
 func (m *RmMessage) writeImpl(b Backend) error {
-	_, err := b.Remove(m.key)
+	_resp, err := b.Remove(m.key)
 	if err != nil {
 		return fmt.Errorf("writing RmMessage to backend")
 	}
 
+	m.response = strconv.FormatBool(_resp)
 	return nil
 }
 
 func (m *RmMessage) readImpl() []byte {
-	return []byte{}
+	return []byte(m.response)
 }
 
 // func TEST1() {
