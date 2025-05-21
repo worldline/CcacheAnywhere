@@ -57,8 +57,13 @@ func (s *SocketServer) start() {
 
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	socketInterface := utils.SocketHandler{BufferSize: com.FIXED_BUF_SIZE}
-	backendInterface := utils.CreateBackend(BACKEND_TYPE)
+	socketInterface := utils.CreateSocketHandler(com.FIXED_BUF_SIZE, &conn)
+	backendInterface, err := utils.CreateBackend(BACKEND_TYPE)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
 	buf := make([]byte, com.FIXED_BUF_SIZE)
 	for {
@@ -74,7 +79,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 
 			packet, err := com.ParsePacket(buf[:n]) // should provide option serialized=true/false
 			if err != nil {
-				fmt.Println("Error with packet format!")
+				fmt.Println("Error with packet format: ", err.Error())
 				continue
 			}
 

@@ -238,18 +238,24 @@ func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (b
 	keyPath := h.getEntryPath(key)
 	fmt.Printf("Key: %s \nData: %s Bool: %v\n", keyPath, data, onlyIfMissing)
 	if onlyIfMissing {
-		res, err := h.client.Head(keyPath)
+		req, err := http.NewRequest("HEAD", keyPath, nil)
 		if err != nil {
 			fmt.Printf("Failed to check for %s in http storage: %s\n", key, err.Error())
 			return false, err
 		}
 
-		if res.StatusCode >= 200 && res.StatusCode < 300 {
-			fmt.Printf("Found entry %s already within http storage: status code: %s",
-				key,
-				res.Status)
+		if h.bearer != "" {
+			encodedCredentials := base64.StdEncoding.EncodeToString([]byte(h.bearer))
+			req.Header.Add("Authorization", "Basic "+encodedCredentials)
 		}
-		return false, err
+
+		resp, err := h.client.Do(req)
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			fmt.Printf("Found entry %v already within http storage: status code: %s",
+				key,
+				resp.Status)
+			return false, err
+		}
 	}
 
 	// contentType := "application/octet-stream"

@@ -7,6 +7,7 @@ import (
 )
 
 var FIXED_BUF_SIZE int
+var PACK_SIZE int
 var SOCKET_PATH string
 
 // The reserved bytes may be used in the future for passing the fd
@@ -43,7 +44,7 @@ func (p *Packet) Print() {
 	fmt.Println("Unused: ", p.Reserved1, p.Reserved2)
 	fmt.Println("Length: ", p.MsgLength)
 	fmt.Println("Offset: ", p.Offset)
-	fmt.Println("Body:   ", p.Body)
+	fmt.Println("Body:   ", p.Body[:p.MsgLength])
 }
 
 func readFields(buffer *bytes.Buffer, fields ...any) error {
@@ -68,7 +69,7 @@ func padBytes(data []byte, bufferSize int) []byte {
 
 func CreatePacket(data []byte, msgtype uint8, ackId uint8, msgId uint8, remainder uint8) Packet {
 	// TODO some checks to the inputs
-	pdata := padBytes(data, FIXED_BUF_SIZE)
+	pdata := padBytes(data, PACK_SIZE)
 	return Packet{
 		MsgType:   msgtype,
 		Rest:      remainder,

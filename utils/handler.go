@@ -3,26 +3,29 @@ package utils
 import (
 	"ccache-backend-client/com"
 	storage "ccache-backend-client/storage"
+	"crypto/rand"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
 )
 
-func CreateBackend(url string) BackendHandler {
-	var tmp storage.Backend
+func CreateSocketHandler(bufferSize int, conn *net.Conn) SocketHandler {
+	return SocketHandler{node: *conn, BufferSize: bufferSize}
+}
+
+func CreateBackend(url string) (*BackendHandler, error) {
 	prefix := strings.Split(url, ":")[0]
 	switch prefix {
 	case "http":
 		attributes, err := storage.ParseAttributes("http-config.json")
 		if err != nil {
-			panic("Config file issue!")
+			return nil, fmt.Errorf("config file issue: %w", err)
 		}
-		tmp = storage.CreateHTTPBackend(url, attributes)
+		return &BackendHandler{node: storage.CreateHTTPBackend(url, attributes)}, nil
 	default:
-		panic("Backend not implemented yet!")
+		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}
-	return BackendHandler{node: tmp}
 }
 
 type Handler interface {
@@ -40,21 +43,12 @@ type SocketHandler struct {
 
 func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
 	var packets []com.Packet
-	var msgType uint8
 	data := (*msg).Read()
-	switch (*msg).(type) {
-	case *storage.GetMessage:
-		msgType = 1
-	case *storage.PutMessage:
-		msgType = 2
-	case *storage.RmMessage:
-		msgType = 3
-	case *storage.SetupMessage:
-		msgType = 4
-	case *storage.TestMessage:
-		msgType = 5
-	default:
-		msgType = 0
+	msgType := (*msg).Type()
+
+	if msgType > 3 {
+		data = make([]byte, 400)
+		rand.Read(data)
 	}
 
 	chunksNum := (len(data) + h.BufferSize - 1) / h.BufferSize
@@ -106,12 +100,13 @@ func (h *SocketHandler) Assemble(p com.Packet) (storage.Message, error) {
 	case 3:
 		resultMessage = &storage.RmMessage{}
 	case 4:
-		resultMessage = &storage.GetMessage{}
+		resultMessage = &storage.TestMessage{}
 	default:
 		return nil, fmt.Errorf("message type is not protocol coherent")
 	}
 
 	resultMessage.Create(data)
+	h.packets = nil // reset after assembling a message successfully
 	return resultMessage, nil
 }
 
@@ -123,6 +118,6 @@ func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		fmt.Printf("Handling message failed for backend: %v", err)
+		fmt.Printf("Handling message failed for backend: %v\n", err)
 	}
 }
