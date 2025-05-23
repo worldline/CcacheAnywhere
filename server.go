@@ -16,6 +16,7 @@ type SocketServer struct {
 	listener        net.Listener
 	inactivityTimer *time.Timer
 	mu              sync.Mutex
+	wg              sync.WaitGroup
 }
 
 func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
@@ -35,8 +36,10 @@ func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
 func (s *SocketServer) start() {
 	defer s.listener.Close()
 	fmt.Println("Server started, listening on:", s.socketPath)
+	fmt.Printf("Limiting connections to a maximum of %d clients!\n", com.MAX_PARALLEL_CLIENTS)
 
 	go s.monitorInactivity()
+	semaphore := make(chan struct{}, com.MAX_PARALLEL_CLIENTS)
 
 	for {
 		conn, err := s.listener.Accept()
@@ -48,15 +51,35 @@ func (s *SocketServer) start() {
 			continue
 		}
 
-		s.resetInactivityTimer()
+		fd, err := conn.(*net.UnixConn).File()
+		if err != nil {
+			return
+		}
+		fmt.Println("Request from client over fd:", fd)
 
-		fmt.Println("Accepted new connection from:", conn.RemoteAddr())
-		go s.handleConnection(conn)
+		s.resetInactivityTimer()
+		semaphore <- struct{}{}
+		s.wg.Add(1)
+		fmt.Println("Accepted new connection from:", fd)
+
+		go func(c net.Conn) {
+			defer func() {
+				c.Close()
+				<-semaphore // Release semaphore
+				s.wg.Done()
+			}()
+
+			s.handleConnection(c)
+		}(conn)
 	}
 }
 
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
+	fd, err := conn.(*net.UnixConn).File()
+	if err != nil {
+		return
+	}
 	socketInterface := utils.CreateSocketHandler(com.FIXED_BUF_SIZE, &conn)
 	backendInterface, err := utils.CreateBackend(BACKEND_TYPE)
 
@@ -69,14 +92,11 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			fmt.Println("Connection closed:", conn.RemoteAddr())
+			fmt.Println("Connection closed:", fd)
 			return
 		}
 
 		if n > 0 {
-			messageString := string(buf[:n])
-			fmt.Printf("Received: %s\n", messageString)
-
 			packet, err := com.ParsePacket(buf[:n]) // should provide option serialized=true/false
 			if err != nil {
 				fmt.Println("Error with packet format: ", err.Error())

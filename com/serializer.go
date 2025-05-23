@@ -6,7 +6,18 @@ import (
 )
 
 func Serialize(data any) []byte {
-	return fmt.Appendf(nil, "%X", data)
+	switch any(data).(type) {
+	case uint8:
+		return fmt.Appendf(nil, "%02X", data)
+	case uint16:
+		return fmt.Appendf(nil, "%04X", data)
+	case uint32:
+		return fmt.Appendf(nil, "%08X", data)
+	case uint64:
+		return fmt.Appendf(nil, "%016X", data)
+	default:
+		panic("unsupported type")
+	}
 }
 
 func Deserialize(data any) ([]byte, error) {

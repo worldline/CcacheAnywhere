@@ -9,6 +9,7 @@ import (
 var FIXED_BUF_SIZE int
 var PACK_SIZE int
 var SOCKET_PATH string
+var MAX_PARALLEL_CLIENTS = 32
 
 // The reserved bytes may be used in the future for passing the fd
 // 0         8        16        24        32
@@ -69,7 +70,7 @@ func padBytes(data []byte, bufferSize int) []byte {
 
 func CreatePacket(data []byte, msgtype uint8, ackId uint8, msgId uint8, remainder uint8) Packet {
 	// TODO some checks to the inputs
-	pdata := padBytes(data, PACK_SIZE)
+	pdata := padBytes(data, PACK_SIZE-16)
 	return Packet{
 		MsgType:   msgtype,
 		Rest:      remainder,
@@ -94,7 +95,9 @@ func (p *Packet) Deparse() []byte {
 	deparsedMessage = append(deparsedMessage, Serialize(p.Reserved2)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.MsgLength)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.Offset)...)
-	deparsedMessage = append(deparsedMessage, Serialize(p.Body)...)
+	for _, octet := range p.Body {
+		deparsedMessage = append(deparsedMessage, Serialize(octet)...)
+	}
 
 	return deparsedMessage
 }
