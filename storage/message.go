@@ -6,17 +6,22 @@ import (
 	"strconv"
 )
 
+type Response struct {
+	message string
+	status  StatusCode
+}
+
 // Message interface defines the methods for messages
 type Message interface {
 	Write(b Backend) error
-	Read() []byte
+	Read() ([]byte, StatusCode)
 	Create([]byte) error
 	Type() uint8
 }
 
 type TestMessage struct {
 	mid      string
-	response string
+	response Response
 }
 
 func (m *TestMessage) Type() uint8 {
@@ -29,29 +34,23 @@ func (m *TestMessage) Create(body []byte) error {
 }
 
 func (m *TestMessage) Write(b Backend) error {
-	return m.writeImpl(b)
-}
-
-func (m *TestMessage) Read() []byte {
-	return m.readImpl()
-}
-
-func (m *TestMessage) writeImpl(b Backend) error {
 	if b != nil {
 		fmt.Println("Backend running successfully!")
 	}
 
-	m.response = "012345000"
+	// insert trivial string!
+	m.response.message = "012345000"
+	m.response.status = SUCCESS
 	return nil
 }
 
-func (m *TestMessage) readImpl() []byte {
-	return []byte(m.response)
+func (m *TestMessage) Read() ([]byte, StatusCode) {
+	return []byte(m.response.message), m.response.status
 }
 
 type SetupMessage struct {
 	mid      string
-	response string
+	response Response
 }
 
 func (m *SetupMessage) Type() uint8 {
@@ -64,25 +63,17 @@ func (m *SetupMessage) Create(body []byte) error {
 }
 
 func (m *SetupMessage) Write(b Backend) error {
-	return m.writeImpl(b)
-}
-
-func (m *SetupMessage) Read() []byte {
-	return m.readImpl()
-}
-
-func (m *SetupMessage) writeImpl(b Backend) error {
 	return fmt.Errorf("writing SetupMessage to backend")
 }
 
-func (m *SetupMessage) readImpl() []byte {
-	return []byte(m.response)
+func (m *SetupMessage) Read() ([]byte, StatusCode) {
+	return []byte(m.response.message), m.response.status
 }
 
 type GetMessage struct {
 	key      []byte
 	mid      string
-	response string
+	response Response
 }
 
 func (m *GetMessage) Type() uint8 {
@@ -98,26 +89,24 @@ func (m *GetMessage) Create(body []byte) error {
 	return nil
 }
 
-func (m *GetMessage) Write(b Backend) error {
-	return m.writeImpl(b)
-}
-
-func (m *GetMessage) Read() []byte {
-	return m.readImpl()
-}
-
-func (m *GetMessage) writeImpl(b Backend) error {
+func (m *GetMessage) Write(b Backend) (err error) {
 	_resp, err := b.Get(m.key)
 	if err != nil {
-		return fmt.Errorf("writing GetMessage to backend: %w", err)
+		if bf, ok := err.(*BackendFailure); ok {
+			m.response.status = b.ResolveProtocolCode(bf.Code)
+		}
 	}
 
-	m.response = _resp
-	return nil
+	m.response.message = _resp
+	return err
 }
 
-func (m *GetMessage) readImpl() []byte {
-	return []byte(m.response)
+func (m *GetMessage) Read() ([]byte, StatusCode) {
+	if len(m.response.message) == 0 {
+		m.response.message = "No data found!"
+	}
+
+	return []byte(m.response.message), m.response.status
 }
 
 type PutMessage struct {
@@ -125,7 +114,7 @@ type PutMessage struct {
 	value         []byte
 	onlyIfMissing bool
 	mid           string
-	response      string
+	response      Response
 }
 
 func (m *PutMessage) Type() uint8 {
@@ -143,32 +132,26 @@ func (m *PutMessage) Create(body []byte) error {
 	return nil
 }
 
-func (m *PutMessage) Write(b Backend) error {
-	return m.writeImpl(b)
-}
-
-func (m *PutMessage) Read() []byte {
-	return m.readImpl()
-}
-
-func (m *PutMessage) writeImpl(b Backend) error {
+func (m *PutMessage) Write(b Backend) (err error) {
 	_resp, err := b.Put(m.key, m.value, m.onlyIfMissing)
 	if err != nil {
-		return fmt.Errorf("writing PutMessage to backend")
+		if bf, ok := err.(*BackendFailure); ok {
+			m.response.status = b.ResolveProtocolCode(bf.Code)
+		}
 	}
 
-	m.response = strconv.FormatBool(_resp)
-	return nil
+	m.response.message = strconv.FormatBool(_resp)
+	return err
 }
 
-func (m *PutMessage) readImpl() []byte {
-	return []byte(m.response)
+func (m *PutMessage) Read() ([]byte, StatusCode) {
+	return []byte(m.response.message), m.response.status
 }
 
 type RmMessage struct {
 	key      []byte
 	mid      string
-	response string
+	response Response
 }
 
 func (m *RmMessage) Type() uint8 {
@@ -184,53 +167,18 @@ func (m *RmMessage) Create(body []byte) error {
 	return nil
 }
 
-func (m *RmMessage) Write(b Backend) error {
-	return m.writeImpl(b)
-}
-
-func (m *RmMessage) Read() []byte {
-	return m.readImpl()
-}
-
-func (m *RmMessage) writeImpl(b Backend) error {
+func (m *RmMessage) Write(b Backend) (err error) {
 	_resp, err := b.Remove(m.key)
 	if err != nil {
-		return fmt.Errorf("writing RmMessage to backend")
+		if bf, ok := err.(*BackendFailure); ok {
+			m.response.status = b.ResolveProtocolCode(bf.Code)
+		}
 	}
 
-	m.response = strconv.FormatBool(_resp)
-	return nil
+	m.response.message = strconv.FormatBool(_resp)
+	return err
 }
 
-func (m *RmMessage) readImpl() []byte {
-	return []byte(m.response)
+func (m *RmMessage) Read() ([]byte, StatusCode) {
+	return []byte(m.response.message), m.response.status
 }
-
-// func TEST1() {
-// 	data := []byte{0x01, 0x00, 0x02, 0x03, 0x04, 0x05, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1}
-// 	packet, err := ParsePacket(data)
-// 	if err != nil {
-// 		fmt.Println("Error parsing packet:", err)
-// 		return
-// 	}
-// 	if packet.MsgLength != len(packet.Body) {
-//  	panic("failed with parsing")
-// 	}
-// }
-//
-// func TEST2() {
-// 	originalData := []byte{0x01, 0x2A, 0x57} // Sample byte slice
-// 	serialized := Serialize(originalData)
-// 	fmt.Println("Serialized:", serialized)
-
-// 	deserialized, err := Deserialize(serialized)
-// 	if err != nil {
-// 		fmt.Println("Error deserializing:", err)
-// 		return
-// 	}
-// 	fmt.Println("Deserialized:", deserialized)
-//
-//  if (deserialised != originalData) {
-//		panic ("failed with serialisation and deserialisation")
-//	}
-// }

@@ -11,7 +11,7 @@ import (
 )
 
 func CreateSocketHandler(bufferSize int, conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn, BufferSize: bufferSize}
+	return SocketHandler{node: *conn, PacketSize: bufferSize}
 }
 
 func CreateBackend(url string) (*BackendHandler, error) {
@@ -36,14 +36,15 @@ type SocketHandler struct {
 	mu         sync.Mutex
 	node       net.Conn
 	curID      uint8
-	ackID      uint8
+	respCode   uint8
 	packets    []com.Packet
-	BufferSize int
+	PacketSize int
 }
 
 func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
 	var packets []com.Packet
-	data := (*msg).Read()
+	data, status := (*msg).Read()
+	h.respCode = uint8(status)
 	msgType := (*msg).Type()
 
 	if msgType > 3 {
@@ -51,12 +52,14 @@ func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
 		rand.Read(data)
 	}
 
-	chunksNum := (len(data) + h.BufferSize - 1) / h.BufferSize
+	bodySize := h.PacketSize - 16
+	chunksNum := (len(data) + bodySize - 1) / bodySize
 	for i := range chunksNum {
-		start := i * h.BufferSize
-		end := min(start+h.BufferSize, len(data))
+		start := i * bodySize
+		end := min(start+bodySize, len(data))
+		fmt.Println("Start", start, "End", end)
 
-		packet := com.CreatePacket(data[start:end], msgType, h.ackID, h.curID, uint8(chunksNum-i))
+		packet := com.CreatePacket(data[start:end], msgType, h.respCode, h.curID, uint8(chunksNum-i-1))
 		packets = append(packets, packet)
 	}
 
@@ -71,7 +74,8 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 	packets := h.fragment(&msg)
 
 	for _, p := range packets {
-		h.node.Write(p.Deparse())
+		formedPacket := p.Deparse()
+		h.node.Write(formedPacket)
 	}
 }
 
@@ -80,7 +84,7 @@ func (h *SocketHandler) Assemble(p com.Packet) (storage.Message, error) {
 	defer h.mu.Unlock()
 
 	h.packets = append(h.packets, p)
-	h.ackID = p.MsgID
+	h.respCode = p.MsgID
 
 	if p.Rest != 0 { // wait for final fragment
 		return nil, nil
@@ -118,6 +122,7 @@ func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		fmt.Printf("Handling message failed for backend: %v\n", err)
+		// TODO make this loggable within the LOG file in ccache?
+		fmt.Printf("Handling message failed for backend: %v\n", err.Error())
 	}
 }

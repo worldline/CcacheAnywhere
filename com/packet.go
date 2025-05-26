@@ -33,7 +33,7 @@ type Packet struct {
 	Rest      uint8  // 8 bits
 	Reserved1 uint16 // 16 bits
 	MsgID     uint8  // 8 bits
-	Ack       uint8  // 8 bits
+	RespCode  uint8  // 8 bits
 	Reserved2 uint16 // 16 bits
 	MsgLength uint32 // 32 bits
 	Offset    uint32 // 32 bits
@@ -41,7 +41,7 @@ type Packet struct {
 }
 
 func (p *Packet) Print() {
-	fmt.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.Ack)
+	fmt.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
 	fmt.Println("Unused: ", p.Reserved1, p.Reserved2)
 	fmt.Println("Length: ", p.MsgLength)
 	fmt.Println("Offset: ", p.Offset)
@@ -68,14 +68,14 @@ func padBytes(data []byte, bufferSize int) []byte {
 	return paddedData
 }
 
-func CreatePacket(data []byte, msgtype uint8, ackId uint8, msgId uint8, remainder uint8) Packet {
+func CreatePacket(data []byte, msgtype uint8, respCode uint8, msgId uint8, remainder uint8) Packet {
 	// TODO some checks to the inputs
 	pdata := padBytes(data, PACK_SIZE-16)
 	return Packet{
 		MsgType:   msgtype,
 		Rest:      remainder,
 		MsgID:     msgId,
-		Ack:       ackId,
+		RespCode:  respCode,
 		Reserved1: 0,
 		Reserved2: 0,
 		MsgLength: uint32(len(data)),
@@ -90,7 +90,7 @@ func (p *Packet) Deparse() []byte {
 	deparsedMessage = append(deparsedMessage, Serialize(p.MsgType)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.Rest)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.MsgID)...)
-	deparsedMessage = append(deparsedMessage, Serialize(p.Ack)...)
+	deparsedMessage = append(deparsedMessage, Serialize(p.RespCode)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.Reserved1)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.Reserved2)...)
 	deparsedMessage = append(deparsedMessage, Serialize(p.MsgLength)...)
@@ -118,7 +118,7 @@ func ParsePacket(data []byte) (*Packet, error) {
 		&packet.MsgType,
 		&packet.Rest,
 		&packet.MsgID,
-		&packet.Ack,
+		&packet.RespCode,
 		&packet.Reserved1,
 		&packet.Reserved2,
 		&packet.MsgLength,

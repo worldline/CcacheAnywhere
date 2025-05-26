@@ -80,7 +80,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	socketInterface := utils.CreateSocketHandler(com.FIXED_BUF_SIZE, &conn)
+	socketInterface := utils.CreateSocketHandler(com.PACK_SIZE, &conn)
 	backendInterface, err := utils.CreateBackend(BACKEND_TYPE)
 
 	if err != nil {
