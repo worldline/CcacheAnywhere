@@ -126,6 +126,24 @@ type HttpStorageBackend struct {
 	layout Layout
 }
 
+func (h *HttpStorageBackend) ResolveProtocolCode(code int) StatusCode {
+	if code < 100 {
+		return LOCAL_ERR
+	} else if code == 404 {
+		return NO_FILE
+	} else if code == 408 {
+		return TIMEOUT
+	} else if code < 200 {
+		return SIGWAIT
+	} else if code < 300 {
+		return SUCCESS
+	} else if code < 400 {
+		return REDIRECT
+	} else {
+		return ERROR
+	}
+}
+
 // RedactSecrets modifies the attributes by redacting the bearer token if it exists
 func (h *HttpStorageBackend) RedactSecrets(attributes []Attribute) {
 	for i, attr := range attributes {
@@ -184,12 +202,25 @@ func CreateHTTPBackend(urlString string, attributes []Attribute) *HttpStorageBac
 		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
 }
 
+// Remove deletes the specified key from the HTTP storage backend.
+// It sends an HTTP request to remove the resource associated with the given key.
+//
+// The errors returned are of type BackendFailure. The Status Code of the http error
+// can be translated by the ResolveProtocolCode available in the backend.
+//
+// key: a byte slice representing the key of the resource to be removed.
+//
+// Returns:
+// - bool: true if the resource was successfully removed; false otherwise.
+// - error: an error object if the operation failed due to network issues, server errors, or other issues.
 func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
 	urlPath := getUrl(&h.url)
 	keyPath := h.getEntryPath(key)
 	req, err := http.NewRequest("DELETE", keyPath, bytes.NewReader(key))
 	if err != nil {
-		return false, err
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("Failed to create request for %s", urlPath),
+			Code:    0}
 	}
 
 	if h.bearer != "" {
@@ -199,24 +230,39 @@ func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		log.Printf("Failed to delete %s from HTTP storage %v", urlPath, err)
-		return false, &BackendFailure{Message: err.Error(), Code: http.StatusInternalServerError}
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("HTTP request failed: %v", err),
+			Code:    resp.StatusCode}
 	}
 	defer resp.Body.Close()
 
 	// Check if the status code indicates a failure
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("Failed to delete %s from HTTP storage: status code: %d", key, resp.StatusCode)
-		return false, &BackendFailure{Message: "failed to delete", Code: resp.StatusCode}
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("Failed to delete %s from HTTP storage (%s)", key, resp.Status),
+			Code:    resp.StatusCode}
 	}
 	return true, nil
 }
 
+// Get retrieves the value associated with the specified key from the HTTP storage backend.
+// It returns the value as a string and an error if the operation fails.
+//
+// The errors returned are of type BackendFailure. The Status Code of the http error
+// can be translated by the ResolveProtocolCode available in the backend.
+//
+// key: The byte slice representing the key to retrieve.
+//
+// Returns:
+// - string: The value associated with the key.
+// - error: An error if the retrieval fails.
 func (h *HttpStorageBackend) Get(key []byte) (string, error) {
 	keyPath := h.getEntryPath(key)
 	req, err := http.NewRequest("GET", keyPath, nil)
 	if err != nil {
-		return err.Error(), err
+		return err.Error(), &BackendFailure{
+			Message: fmt.Sprintf("Failed to delete %s from HTTP storage", key),
+			Code:    req.Response.StatusCode}
 	}
 
 	if h.bearer != "" {
@@ -226,22 +272,46 @@ func (h *HttpStorageBackend) Get(key []byte) (string, error) {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		fmt.Printf("Failed to perform GET %s from http storage!\n", key)
-		return err.Error(), err
+		return "", &BackendFailure{
+			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
+			Code:    resp.StatusCode}
 	}
+
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	return string(body), err
+	if err != nil {
+		return "", &BackendFailure{
+			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
+			Code:    0}
+	}
+	return string(body), nil
 }
 
+// Put stores data associated with the specified key in the HTTP storage backend.
+// It sends an HTTP request to create or update the resource.
+//
+// The errors returned are of type BackendFailure. The Status Code of the http error
+// can be translated by the ResolveProtocolCode available in the backend.
+//
+// key: a byte slice representing the key under which the data will be stored.
+// data: a byte slice containing the data to be stored.
+// onlyIfMissing: a boolean flag indicating whether the operation should only succeed if the key does not already exist.
+//   - If true, the operation will fail if the key already exists.
+//   - If false, the operation will overwrite existing data for the key.
+//
+// Returns:
+// - bool: true if the data was successfully stored; false if the data was not stored (e.g., because the key exists and `onlyIfMissing` is true).
+// - error: an error object if the operation failed due to network issues, server errors, or other reasons.
 func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (bool, error) {
+	urlPath := getUrl(&h.url)
 	keyPath := h.getEntryPath(key)
-	fmt.Printf("Key: %s \nData: %s Bool: %v\n", keyPath, data, onlyIfMissing)
+
 	if onlyIfMissing {
 		req, err := http.NewRequest("HEAD", keyPath, nil)
 		if err != nil {
-			fmt.Printf("Failed to check for %s in http storage: %s\n", key, err.Error())
-			return false, err
+			return false, &BackendFailure{
+				Message: fmt.Sprintf("Failed to create request for %s", urlPath),
+				Code:    0}
 		}
 
 		if h.bearer != "" {
@@ -250,20 +320,23 @@ func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (b
 		}
 
 		resp, err := h.client.Do(req)
+		if err != nil {
+			return false, &BackendFailure{
+				Message: fmt.Sprintf("Failed to fetch %s from HTTP", urlPath),
+				Code:    resp.StatusCode}
+		}
+
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			fmt.Printf("Found entry %v already within http storage: status code: %s",
-				key,
-				resp.Status)
-			return false, err
+			return false, nil // file was found, no need to put again
 		}
 	}
 
-	// contentType := "application/octet-stream"
 	reader := bytes.NewReader(data)
 	req, err := http.NewRequest("PUT", keyPath, reader)
 	if err != nil {
-		log.Fatal(err)
-		return false, err
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("Failed to create put request for %s", urlPath),
+			Code:    0}
 	}
 
 	if h.bearer != "" {
@@ -272,15 +345,10 @@ func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (b
 	}
 
 	resp, err := h.client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-		return false, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		fmt.Printf("Failed to put %s to http storage: status code: %s",
-			key,
-			resp.Status)
-		return false, err
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 || err != nil {
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("Failed to put %s to http storage (%s)", key, resp.Status),
+			Code:    resp.StatusCode}
 	}
 
 	return true, nil
