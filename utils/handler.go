@@ -23,6 +23,8 @@ func CreateBackend(url string) (*BackendHandler, error) {
 			return nil, fmt.Errorf("config file issue: %w", err)
 		}
 		return &BackendHandler{node: storage.CreateHTTPBackend(url, attributes)}, nil
+	case "gs":
+		return &BackendHandler{node: storage.CreateGCSBackend(url, []storage.Attribute{})}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}
