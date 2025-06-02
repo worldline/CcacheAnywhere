@@ -20,6 +20,15 @@ type SocketServer struct {
 }
 
 func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
+	if _, err := os.Stat(socketPath); err == nil {
+		fmt.Println("try os.Stat")
+		conn, err := net.Dial("unix", socketPath)
+		if err == nil {
+			conn.Close()
+			return nil, fmt.Errorf("socket already in use")
+		}
+		os.Remove(socketPath) // exists but can't connect (stale)
+	}
 	l, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, err
