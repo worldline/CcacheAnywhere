@@ -82,7 +82,7 @@ func formatDigest(data []byte) (string, error) {
 	}
 
 	base16Part := hex.EncodeToString(data[:base16Bytes])
-	base32Part := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data[base16Bytes:])
+	base32Part := strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(data[base16Bytes:]))
 
 	return base16Part + base32Part, nil
 }
