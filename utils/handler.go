@@ -57,7 +57,6 @@ func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
 	for i := range chunksNum {
 		start := i * bodySize
 		end := min(start+bodySize, len(data))
-		fmt.Println("Start", start, "End", end)
 
 		packet := com.CreatePacket(data[start:end], msgType, h.respCode, h.curID, uint8(chunksNum-i-1))
 		packets = append(packets, packet)

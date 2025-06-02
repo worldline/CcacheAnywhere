@@ -3,11 +3,10 @@ package backend
 import (
 	// "ccache-backend-client/storage"
 	"fmt"
-	"strconv"
 )
 
 type Response struct {
-	message string
+	message []byte
 	status  StatusCode
 }
 
@@ -38,14 +37,13 @@ func (m *TestMessage) Write(b Backend) error {
 		fmt.Println("Backend running successfully!")
 	}
 
-	// insert trivial string!
-	m.response.message = "012345000"
+	m.response.message = []byte{0, 1, 2, 3, 4, 5, 0, 0, 0}
 	m.response.status = SUCCESS
 	return nil
 }
 
 func (m *TestMessage) Read() ([]byte, StatusCode) {
-	return []byte(m.response.message), m.response.status
+	return m.response.message, m.response.status
 }
 
 type SetupMessage struct {
@@ -67,7 +65,7 @@ func (m *SetupMessage) Write(b Backend) error {
 }
 
 func (m *SetupMessage) Read() ([]byte, StatusCode) {
-	return []byte(m.response.message), m.response.status
+	return m.response.message, m.response.status
 }
 
 type GetMessage struct {
@@ -103,10 +101,10 @@ func (m *GetMessage) Write(b Backend) (err error) {
 
 func (m *GetMessage) Read() ([]byte, StatusCode) {
 	if len(m.response.message) == 0 {
-		m.response.message = "No data found!"
+		m.response.message = []byte("No data found!")
 	}
 
-	return []byte(m.response.message), m.response.status
+	return m.response.message, m.response.status
 }
 
 type PutMessage struct {
@@ -140,12 +138,16 @@ func (m *PutMessage) Write(b Backend) (err error) {
 		}
 	}
 
-	m.response.message = strconv.FormatBool(_resp)
+	if _resp {
+		m.response.message = []byte{0x01}
+	} else {
+		m.response.message = []byte{0x00}
+	}
 	return err
 }
 
 func (m *PutMessage) Read() ([]byte, StatusCode) {
-	return []byte(m.response.message), m.response.status
+	return m.response.message, m.response.status
 }
 
 type RmMessage struct {
@@ -175,10 +177,14 @@ func (m *RmMessage) Write(b Backend) (err error) {
 		}
 	}
 
-	m.response.message = strconv.FormatBool(_resp)
+	if _resp {
+		m.response.message = []byte{0x01}
+	} else {
+		m.response.message = []byte{0x00}
+	}
 	return err
 }
 
 func (m *RmMessage) Read() ([]byte, StatusCode) {
-	return []byte(m.response.message), m.response.status
+	return m.response.message, m.response.status
 }

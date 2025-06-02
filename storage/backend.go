@@ -58,7 +58,7 @@ func (e *BackendFailure) Error() string {
 }
 
 type Backend interface {
-	Get([]byte) (string, error)
+	Get([]byte) ([]byte, error)
 	Put([]byte, []byte, bool) (bool, error)
 	Remove([]byte) (bool, error)
 	ResolveProtocolCode(int) StatusCode

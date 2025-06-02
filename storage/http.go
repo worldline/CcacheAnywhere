@@ -256,11 +256,11 @@ func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
 // Returns:
 // - string: The value associated with the key.
 // - error: An error if the retrieval fails.
-func (h *HttpStorageBackend) Get(key []byte) (string, error) {
+func (h *HttpStorageBackend) Get(key []byte) ([]byte, error) {
 	keyPath := h.getEntryPath(key)
 	req, err := http.NewRequest("GET", keyPath, nil)
 	if err != nil {
-		return err.Error(), &BackendFailure{
+		return []byte{}, &BackendFailure{
 			Message: fmt.Sprintf("Failed to delete %s from HTTP storage", key),
 			Code:    req.Response.StatusCode}
 	}
@@ -272,19 +272,19 @@ func (h *HttpStorageBackend) Get(key []byte) (string, error) {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return "", &BackendFailure{
+		return []byte{}, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
-			Code:    resp.StatusCode}
+			Code:    http.StatusInternalServerError}
 	}
 
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", &BackendFailure{
+		return []byte{}, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
 			Code:    0}
 	}
-	return string(body), nil
+	return body, nil
 }
 
 // Put stores data associated with the specified key in the HTTP storage backend.
@@ -345,7 +345,11 @@ func (h *HttpStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (b
 	}
 
 	resp, err := h.client.Do(req)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 || err != nil {
+	if err != nil {
+		return false, &BackendFailure{
+			Message: fmt.Sprintf("Failed to put %s to http storage (Server Error 500)", key),
+			Code:    http.StatusInternalServerError}
+	} else if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false, &BackendFailure{
 			Message: fmt.Sprintf("Failed to put %s to http storage (%s)", key, resp.Status),
 			Code:    resp.StatusCode}
