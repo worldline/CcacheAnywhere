@@ -4,6 +4,8 @@ go 1.23.6
 
 require cloud.google.com/go/storage v1.52.0
 
+require github.com/golang/protobuf v1.5.4 // indirect
+
 require (
 	cel.dev/expr v0.19.2 // indirect
 	cloud.google.com/go v0.120.0 // indirect
@@ -44,6 +46,7 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/api v0.229.0 // indirect
+	google.golang.org/appengine v1.6.8
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
