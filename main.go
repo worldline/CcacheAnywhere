@@ -37,9 +37,17 @@ func startServer() {
 	server.start()
 }
 
+func getLogFd() *os.File {
+	f, err := os.OpenFile("EDUC_LOG", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0664)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
+		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
 			" [optional.. attributes]")
 		os.Exit(1)
 	}
@@ -55,6 +63,11 @@ func main() {
 			" [optional.. attributes]")
 		os.Exit(1)
 	}
+
+	// capture output
+	f := getLogFd()
+	log.SetOutput(f)
+	defer f.Close()
 
 	execDir, err := os.Executable()
 	if err != nil {

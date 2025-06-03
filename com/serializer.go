@@ -32,6 +32,9 @@ func Deserialize(data any) ([]byte, error) {
 }
 
 func DeserializeString(data string) ([]byte, error) {
+	if len(data)%2 != 0 {
+		return nil, fmt.Errorf("input byte slice must have an even length")
+	}
 	bytes, err := hex.DecodeString(data)
 	if err != nil {
 		return nil, err
