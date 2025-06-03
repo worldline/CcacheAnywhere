@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 )
 
 var FIXED_BUF_SIZE int
@@ -41,11 +42,11 @@ type Packet struct {
 }
 
 func (p *Packet) Print() {
-	fmt.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
-	fmt.Println("Unused: ", p.Reserved1, p.Reserved2)
-	fmt.Println("Length: ", p.MsgLength)
-	fmt.Println("Offset: ", p.Offset)
-	fmt.Println("Body:   ", p.Body[:p.MsgLength])
+	log.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
+	log.Println("Unused: ", p.Reserved1, p.Reserved2)
+	log.Println("Length: ", p.MsgLength)
+	log.Println("Offset: ", p.Offset)
+	log.Println("Body:   ", p.Body[:p.MsgLength])
 }
 
 func readFields(buffer *bytes.Buffer, fields ...any) error {

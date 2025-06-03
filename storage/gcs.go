@@ -97,12 +97,12 @@ func CreateGCSBackend(bucketName string, attributes []Attribute) *GCSStorageBack
 			case "STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE":
 				defaultAttrs.StorageClass = attr.Value
 			default:
-				fmt.Printf("Unknown storage class: %s\n", attr.Value)
+				log.Printf("Unknown storage class: %s\n", attr.Value)
 			}
 		case "location":
 			defaultAttrs.Location = attr.Value
 		default:
-			fmt.Printf("Unknown attribute: %s\n", attr.Key)
+			log.Printf("Unknown attribute: %s\n", attr.Key)
 		}
 	}
 

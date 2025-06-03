@@ -3,6 +3,7 @@ package backend
 import (
 	// "ccache-backend-client/storage"
 	"fmt"
+	"log"
 )
 
 type Response struct {
@@ -34,7 +35,7 @@ func (m *TestMessage) Create(body []byte) error {
 
 func (m *TestMessage) Write(b Backend) error {
 	if b != nil {
-		fmt.Println("Backend running successfully!")
+		log.Println("Backend running successfully!")
 	}
 
 	m.response.message = []byte{0, 1, 2, 3, 4, 5, 0, 0, 0}

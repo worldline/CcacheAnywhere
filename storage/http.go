@@ -48,7 +48,7 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 		}
 
 		logMessage := fmt.Sprintf("Translated key %s to Bazel layout ac/%s", key, hexDigits)
-		fmt.Println(logMessage)
+		log.Println(logMessage)
 		return fmt.Sprintf("%s/ac/%s", urlPath, hexDigits)
 
 	case flat:
@@ -177,7 +177,7 @@ func CreateHTTPBackend(urlString string, attributes []Attribute) *HttpStorageBac
 			case "subdirs":
 				defaultHeaders.layout = subdirs
 			default:
-				fmt.Printf("Unknown layout: %s\n", attr.Value)
+				log.Printf("Unknown layout: %s\n", attr.Value)
 			}
 		case "header":
 			spltres := strings.Split(attr.Value, "=")
