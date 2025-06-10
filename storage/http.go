@@ -15,14 +15,6 @@ import (
 )
 
 // URL format: http://HOST[:PORT][/PATH]
-func getUrlPath(urlString string) (string, error) {
-	u, err := urlib.Parse(urlString)
-	if err != nil {
-		return "", err
-	}
-	return u.Path, nil
-}
-
 func getUrl(u *urlib.URL) string {
 	if u.Host == "" {
 		panic("user provided url is empty!")
