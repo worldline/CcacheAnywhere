@@ -108,7 +108,7 @@ func ParsePacket(data []byte) (*Packet, error) {
 		return nil, fmt.Errorf("data too short, header alone must be 16 bytes")
 	}
 
-	data, err := Deserialize(string(data))
+	data, err := Deserialize(data)
 	if err != nil {
 		return nil, fmt.Errorf("deserialization of received data failed: %w", err)
 	}
