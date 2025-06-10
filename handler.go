@@ -1,4 +1,4 @@
-package utils
+package main
 
 import (
 	"ccache-backend-client/com"

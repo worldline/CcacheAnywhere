@@ -2,7 +2,6 @@ package main
 
 import (
 	"ccache-backend-client/com"
-	"ccache-backend-client/utils"
 	"fmt"
 	"log"
 	"net"
@@ -90,8 +89,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	socketInterface := utils.CreateSocketHandler(com.PACK_SIZE, &conn)
-	backendInterface, err := utils.CreateBackend(BACKEND_TYPE)
+	socketInterface := CreateSocketHandler(com.PACK_SIZE, &conn)
+	backendInterface, err := CreateBackend(BACKEND_TYPE)
 
 	if err != nil {
 		log.Println(err.Error())
