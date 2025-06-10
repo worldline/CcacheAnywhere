@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"strings"
 	"sync"
 )
@@ -15,17 +16,38 @@ func CreateSocketHandler(bufferSize int, conn *net.Conn) SocketHandler {
 	return SocketHandler{node: *conn, PacketSize: bufferSize}
 }
 
+// Format of inputted url http://secret-key@domainname.com/path/to/folder|attribute=value
+//
+// Attributes might contain one or multiple key=value pairs separated by '|'
+func parseUrl(input string) (*url.URL, []storage.Attribute) {
+	parts := strings.Split(input, "|")
+	var attributes []storage.Attribute
+
+	parsedUrl, err := url.Parse(parts[0])
+	if err != nil {
+		return nil, nil
+	}
+
+	for _, attrStr := range parts[1:] {
+		if attrStr != "" {
+			attrs := strings.Split(attrStr, "=")
+			if len(attrs) == 2 {
+				attributes = append(attributes, storage.Attribute{Key: attrs[0], Value: attrs[1]})
+			}
+		}
+	}
+
+	return parsedUrl, attributes
+}
+
 func CreateBackend(url string) (*BackendHandler, error) {
 	prefix := strings.Split(url, ":")[0]
+	furl, attributes := parseUrl(url)
 	switch prefix {
 	case "http":
-		attributes, err := storage.ParseAttributes("http-config.json")
-		if err != nil {
-			return nil, fmt.Errorf("config file issue: %w", err)
-		}
-		return &BackendHandler{node: storage.CreateHTTPBackend(url, attributes)}, nil
+		return &BackendHandler{node: storage.CreateHTTPBackend(furl, attributes)}, nil
 	case "gs":
-		return &BackendHandler{node: storage.CreateGCSBackend(url, []storage.Attribute{})}, nil
+		return &BackendHandler{node: storage.CreateGCSBackend(furl, attributes)}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	urlib "net/url"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -76,7 +78,7 @@ func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) 
 	return option.WithCredentialsFile("/home/rocky/.config/gcloud/application_default_credentials.json"), nil
 }
 
-func CreateGCSBackend(bucketName string, attributes []Attribute) *GCSStorageBackend {
+func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	// something of form gs://my_bucket_name
 	defaultAttrs := newGCSAttributes()
 
@@ -97,7 +99,8 @@ func CreateGCSBackend(bucketName string, attributes []Attribute) *GCSStorageBack
 			case "STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE":
 				defaultAttrs.StorageClass = attr.Value
 			default:
-				log.Printf("Unknown storage class: %s\n", attr.Value)
+				defaultAttrs.StorageClass = "STANDARD"
+				log.Printf("Unknown storage class: %s - defaulting to Standard\n", attr.Value)
 			}
 		case "location":
 			defaultAttrs.Location = attr.Value
@@ -121,11 +124,16 @@ func CreateGCSBackend(bucketName string, attributes []Attribute) *GCSStorageBack
 		return nil
 	}
 
+	location := url.Path
+	if strings.HasPrefix(location, "/") {
+		location = location[1:] + "/"
+	}
+
 	return &GCSStorageBackend{
+		bucketName:   url.Host,
 		client:       client,
-		bucketName:   bucketName,
+		location:     location,
 		storageClass: defaultAttrs.StorageClass,
-		location:     defaultAttrs.Location,
 		timeout:      defaultAttrs.Timeout,
 	}
 }
@@ -157,6 +165,7 @@ func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
 		}
 	}
 	ctx := context.Background()
+	objectName = h.location + objectName
 
 	objHandle := h.client.Bucket(h.bucketName).Object(objectName)
 
@@ -197,6 +206,7 @@ func (h *GCSStorageBackend) Remove(key []byte) (bool, error) {
 		}
 	}
 	ctx := context.Background()
+	objectName = h.location + objectName
 
 	objHandle := h.client.Bucket(h.bucketName).Object(objectName)
 
@@ -227,6 +237,7 @@ func (h *GCSStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (bo
 		}
 	}
 	ctx := context.Background()
+	objectName = h.location + objectName
 	objHandle := h.client.Bucket(h.bucketName).Object(objectName)
 
 	if onlyIfMissing {

@@ -23,7 +23,7 @@ func getUrl(u *urlib.URL) string {
 	if u.Port() != "" {
 		port = ":" + u.Port()
 	}
-	return fmt.Sprintf("%s://%s%s/", u.Scheme, u.Hostname(), port)
+	return fmt.Sprintf("%s://%s%s%s", u.Scheme, u.Hostname(), port, u.Path)
 }
 
 func (h *HttpStorageBackend) getEntryPath(key []byte) string {
@@ -35,12 +35,11 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 		hexDigits := hex.EncodeToString(key)
 
 		// Ensure hexDigits has the expected size
-		if len(hexDigits) < sha256HexSize {
-			hexDigits += string(make([]byte, sha256HexSize-len(hexDigits)))
+		hexDigits += hex.EncodeToString(make([]byte, 12)) // need 24 zeros
+		if len(hexDigits) != sha256HexSize {
+			panic("This should not happen!")
 		}
 
-		logMessage := fmt.Sprintf("Translated key %s to Bazel layout ac/%s", key, hexDigits)
-		log.Println(logMessage)
 		return fmt.Sprintf("%s/ac/%s", urlPath, hexDigits)
 
 	case flat:
@@ -48,7 +47,7 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 		if err != nil {
 			return ""
 		}
-		return fmt.Sprintf("%s%s", urlPath, hexDigit)
+		return fmt.Sprintf("%s/%s", urlPath, hexDigit)
 
 	case subdirs:
 		keyStr, err := formatDigest(key)
@@ -59,7 +58,7 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 		if len(keyStr) <= digits {
 			panic("keyStr length is insufficient for subdirectory layout")
 		}
-		return fmt.Sprintf("%s%s/%s", urlPath, keyStr[:digits], keyStr[digits:])
+		return fmt.Sprintf("%s/%s/%s", urlPath, keyStr[:digits], keyStr[digits:])
 
 	default:
 		panic("unknown layout")
@@ -148,7 +147,7 @@ func (h *HttpStorageBackend) RedactSecrets(attributes []Attribute) {
 
 // TODO define a backendATTributes struct as argument for create
 // each create deals with it as it wishes
-func CreateHTTPBackend(urlString string, attributes []Attribute) *HttpStorageBackend {
+func CreateHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
 	defaultHeaders := newHttpHeaders()
 	for _, attr := range attributes {
 		switch attr.Key {
@@ -169,7 +168,7 @@ func CreateHTTPBackend(urlString string, attributes []Attribute) *HttpStorageBac
 			case "subdirs":
 				defaultHeaders.layout = subdirs
 			default:
-				log.Printf("Unknown layout: %s\n", attr.Value)
+				defaultHeaders.layout = subdirs
 			}
 		case "header":
 			spltres := strings.Split(attr.Value, "=")
@@ -185,10 +184,10 @@ func CreateHTTPBackend(urlString string, attributes []Attribute) *HttpStorageBac
 		}
 	}
 
-	url, err := urlib.Parse(urlString)
-	if err != nil {
-		return nil
+	if url.User != nil {
+		defaultHeaders.bearerToken = url.User.String()
 	}
+
 	httpclient := http.Client{Timeout: defaultHeaders.connectionTimeout}
 	return &HttpStorageBackend{url: *url, client: &httpclient,
 		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
