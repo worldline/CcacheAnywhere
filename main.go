@@ -17,13 +17,12 @@ const inactivityTimeout = 300 * time.Second
 
 func startServer() {
 	server, err := newServer(com.SOCKET_PATH, com.FIXED_BUF_SIZE)
-	defer server.cleanup()
-
 	if err != nil {
 		log.Println("Error starting server", err)
 		return
 	}
 
+	defer server.cleanup()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
