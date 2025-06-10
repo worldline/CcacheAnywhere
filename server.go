@@ -65,12 +65,12 @@ func (s *SocketServer) start() {
 		if err != nil {
 			return
 		}
-		log.Println("Request from client over fd:", fd)
+		log.Println("Request from client over fd:", fd.Fd())
 
 		s.resetInactivityTimer()
 		semaphore <- struct{}{}
 		s.wg.Add(1)
-		log.Println("Accepted new connection from:", fd)
+		log.Println("Accepted new connection from:", fd.Fd())
 
 		go func(c net.Conn) {
 			defer func() {
@@ -102,7 +102,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			log.Println("Connection closed:", fd)
+			log.Println("Connection closed:", fd.Fd())
 			return
 		}
 
