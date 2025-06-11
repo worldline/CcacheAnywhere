@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	urlib "net/url"
 	"strings"
 	"time"
@@ -100,19 +99,19 @@ func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend
 				defaultAttrs.StorageClass = attr.Value
 			default:
 				defaultAttrs.StorageClass = "STANDARD"
-				log.Printf("Unknown storage class: %s - defaulting to Standard\n", attr.Value)
+				LOG("Unknown storage class: %s - defaulting to Standard\n", attr.Value)
 			}
 		case "location":
 			defaultAttrs.Location = attr.Value
 		default:
-			log.Printf("Unknown attribute: %s\n", attr.Key)
+			LOG("Unknown attribute: %s\n", attr.Key)
 		}
 	}
 
 	// Setup credentials options
 	credsOption, err := defaultAttrs.getCredentialsOption()
 	if err != nil {
-		log.Printf("Failed to setup credentials: %v", err)
+		LOG("Failed to setup credentials: %v\n", err)
 		return nil
 	}
 
@@ -120,7 +119,7 @@ func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, credsOption)
 	if err != nil {
-		log.Printf("Error creating GCS client: %v", err)
+		LOG("Error creating GCS client: %v\n", err)
 		return nil
 	}
 

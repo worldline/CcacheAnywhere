@@ -5,7 +5,6 @@ import (
 	storage "ccache-backend-client/storage"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"strings"
@@ -97,7 +96,7 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 
 	packets := h.fragment(&msg)
 
-	log.Printf("Send %d number of packets", len(packets))
+	LOG("Send %d packet(s)\n", len(packets))
 	for _, p := range packets {
 		formedPacket := p.Deparse()
 		h.node.Write(formedPacket)
@@ -147,7 +146,6 @@ func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		// TODO make this loggable within the LOG file in ccache?
-		log.Printf("Handling message failed for backend: %v\n", err.Error())
+		LOG("Handling message failed for backend: %v\n", err.Error())
 	}
 }

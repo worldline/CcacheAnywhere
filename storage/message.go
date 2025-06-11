@@ -1,9 +1,14 @@
 package backend
 
 import (
-	// "ccache-backend-client/storage"
+	"ccache-backend-client/utils"
 	"fmt"
-	"log"
+)
+
+var (
+	LOG  = utils.Inform
+	WARN = utils.WarnUser
+	TERM = utils.ReportError
 )
 
 type Response struct {
@@ -35,7 +40,7 @@ func (m *TestMessage) Create(body []byte) error {
 
 func (m *TestMessage) Write(b Backend) error {
 	if b != nil {
-		log.Println("Backend running successfully!")
+		LOG("Backend running successfully!\n")
 	}
 
 	m.response.message = []byte{0, 1, 2, 3, 4, 5, 0, 0, 0}

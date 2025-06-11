@@ -2,9 +2,15 @@ package com
 
 import (
 	"bytes"
+	"ccache-backend-client/utils"
 	"encoding/binary"
 	"fmt"
-	"log"
+)
+
+var (
+	LOG  = utils.Inform
+	WARN = utils.WarnUser
+	TERM = utils.ReportError
 )
 
 var FIXED_BUF_SIZE int
@@ -42,11 +48,11 @@ type Packet struct {
 }
 
 func (p *Packet) Print() {
-	log.Println("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
-	log.Println("Unused: ", p.Reserved1, p.Reserved2)
-	log.Println("Length: ", p.MsgLength)
-	log.Println("Offset: ", p.Offset)
-	log.Println("Body:   ", p.Body[:p.MsgLength])
+	LOG("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
+	LOG("Unused: ", p.Reserved1, p.Reserved2)
+	LOG("Length: ", p.MsgLength)
+	LOG("Offset: ", p.Offset)
+	LOG("Body:   ", p.Body[:p.MsgLength])
 }
 
 func readFields(buffer *bytes.Buffer, fields ...any) error {

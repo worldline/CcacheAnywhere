@@ -3,7 +3,6 @@ package main
 import (
 	"ccache-backend-client/com"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"sync"
@@ -21,7 +20,7 @@ type SocketServer struct {
 
 func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
 	if _, err := os.Stat(socketPath); err == nil {
-		log.Println("try os.Stat")
+		LOG("try os.Stat for %v\n", socketPath)
 		conn, err := net.Dial("unix", socketPath)
 		if err == nil {
 			conn.Close()
@@ -44,8 +43,8 @@ func newServer(socketPath string, bufferSize int) (*SocketServer, error) {
 
 func (s *SocketServer) start() {
 	defer s.listener.Close()
-	log.Println("Server started, listening on:", s.socketPath)
-	log.Printf("Limiting connections to a maximum of %d clients!\n", com.MAX_PARALLEL_CLIENTS)
+	LOG("Server started, listening on: %v\n", s.socketPath)
+	LOG("Limiting connections to a maximum of %d clients!\n", com.MAX_PARALLEL_CLIENTS)
 
 	go s.monitorInactivity()
 	semaphore := make(chan struct{}, com.MAX_PARALLEL_CLIENTS)
@@ -56,7 +55,7 @@ func (s *SocketServer) start() {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				return
 			}
-			log.Println("Error accepting connection:", err)
+			LOG("Error accepting connection: %v\n", err)
 			continue
 		}
 
@@ -64,12 +63,12 @@ func (s *SocketServer) start() {
 		if err != nil {
 			return
 		}
-		log.Println("Request from client over fd:", fd.Fd())
+		LOG("Request from client over fd: %d\n", fd.Fd())
 
 		s.resetInactivityTimer()
 		semaphore <- struct{}{}
 		s.wg.Add(1)
-		log.Println("Accepted new connection from:", fd.Fd())
+		LOG("Accepted new connection from: %d\n", fd.Fd())
 
 		go func(c net.Conn) {
 			defer func() {
@@ -91,9 +90,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	}
 	socketInterface := CreateSocketHandler(com.PACK_SIZE, &conn)
 	backendInterface, err := CreateBackend(BACKEND_TYPE)
-
 	if err != nil {
-		log.Println(err.Error())
+		WARN("%v\n", err.Error())
 		return
 	}
 
@@ -101,28 +99,28 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			log.Println("Connection closed:", fd.Fd())
+			LOG("Connection closed: %d\n", fd.Fd())
 			return
 		}
 
 		if n > 0 {
 			packet, err := com.ParsePacket(buf[:n]) // should provide option serialized=true/false
 			if err != nil {
-				log.Println("Error with packet format: ", err.Error())
+				LOG("Error with packet format: %v\n", err.Error())
 				continue
 			}
 
 			receivedMessage, err := socketInterface.Assemble(*packet)
 
 			if err != nil {
-				log.Println("Connection closing!", err)
+				LOG("Connection closing! %v\n", err)
 				return
 			}
 
 			if receivedMessage != nil {
-				log.Println("Server: Handle packet")
+				LOG("Server: Handle packet\n")
 				backendInterface.Handle(receivedMessage)
-				log.Println("Server: Socket send")
+				LOG("Server: Socket send\n")
 				socketInterface.Handle(receivedMessage)
 			}
 		}
@@ -135,7 +133,7 @@ func (s *SocketServer) monitorInactivity() {
 	for {
 		select {
 		case <-s.inactivityTimer.C:
-			log.Printf("No activity for %v Minutes. Shutting down.\n", inactivityTimeout.Minutes())
+			LOG("No activity for %v Minutes. Shutting down!\n", inactivityTimeout.Minutes())
 			s.cleanup()
 			os.Exit(0)
 		}
@@ -154,6 +152,6 @@ func (s *SocketServer) resetInactivityTimer() {
 
 func (s *SocketServer) cleanup() {
 	if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
-		log.Printf("Error removing socket file: %s\n", err)
+		LOG("Error removing socket file: %w\n", err)
 	}
 }

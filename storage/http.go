@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	urlib "net/url"
 	"strings"
@@ -175,12 +174,12 @@ func CreateHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBacke
 			if spltres[len(spltres)-1] != "" {
 				defaultHeaders.emplace(attr.Key, attr.Value)
 			} else {
-				log.Fatal("error")
+				LOG("HTTP header error\n")
 			}
 		case "url":
 			// TODO
 		default:
-			log.Println("Attribute not known!", attr.Key)
+			LOG("HTTP attribute '%s' not known!\n", attr.Key)
 		}
 	}
 
