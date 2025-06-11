@@ -2,21 +2,15 @@ package com
 
 import (
 	"bytes"
-	"ccache-backend-client/utils"
 	"encoding/binary"
 	"fmt"
-)
 
-var (
-	LOG  = utils.Inform
-	WARN = utils.WarnUser
-	TERM = utils.ReportError
+	. "ccache-backend-client/internal/logger"
 )
 
 var FIXED_BUF_SIZE int
 var PACK_SIZE int
 var SOCKET_PATH string
-var MAX_PARALLEL_CLIENTS = 32
 
 // The reserved bytes may be used in the future for passing the fd
 // 0         8        16        24        32
@@ -48,11 +42,11 @@ type Packet struct {
 }
 
 func (p *Packet) Print() {
-	LOG("Head:   ", p.MsgType, p.Rest, p.MsgID, p.RespCode)
-	LOG("Unused: ", p.Reserved1, p.Reserved2)
-	LOG("Length: ", p.MsgLength)
-	LOG("Offset: ", p.Offset)
-	LOG("Body:   ", p.Body[:p.MsgLength])
+	LOG("Head:   %v %v %v %v\n", p.MsgType, p.Rest, p.MsgID, p.RespCode)
+	LOG("Unused: %v %v\n", p.Reserved1, p.Reserved2)
+	LOG("Length: %v\n", p.MsgLength)
+	LOG("Offset: %v\n", p.Offset)
+	LOG("Body:   %v\n", p.Body[:p.MsgLength])
 }
 
 func readFields(buffer *bytes.Buffer, fields ...any) error {

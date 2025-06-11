@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	. "ccache-backend-client/internal/logger"
+
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
 )
@@ -16,8 +18,6 @@ import (
 // setMetadata sets an object's metadata.
 // run this using a go coroutine to set the meta data of the object in the background
 func setMetadata(w *storage.Writer, bucket, object string) error {
-	// bucket := "bucket-name"
-	// object := "object-name"
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {

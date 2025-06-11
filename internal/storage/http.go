@@ -11,6 +11,8 @@ import (
 	urlib "net/url"
 	"strings"
 	"time"
+
+	. "ccache-backend-client/internal/logger"
 )
 
 // URL format: http://HOST[:PORT][/PATH]
@@ -131,16 +133,6 @@ func (h *HttpStorageBackend) ResolveProtocolCode(code int) StatusCode {
 		return REDIRECT
 	} else {
 		return ERROR
-	}
-}
-
-// RedactSecrets modifies the attributes by redacting the bearer token if it exists
-func (h *HttpStorageBackend) RedactSecrets(attributes []Attribute) {
-	for i, attr := range attributes {
-		if attr.Key == "bearer-token" {
-			attributes[i].Value = RedactedPassword
-			attributes[i].RawValue = RedactedPassword
-		}
 	}
 }
 

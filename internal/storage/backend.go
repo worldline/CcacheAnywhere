@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 )
 
-var RedactedPassword = "********"
-
 type Attribute struct {
 	RawValue string
 	Value    string

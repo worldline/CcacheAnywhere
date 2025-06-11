@@ -1,14 +1,16 @@
-package main
+package app
 
 import (
-	"ccache-backend-client/com"
-	storage "ccache-backend-client/storage"
 	"crypto/rand"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
+
+	"ccache-backend-client/internal/com"
+	"ccache-backend-client/internal/logger"
+	storage "ccache-backend-client/internal/storage"
 )
 
 func CreateSocketHandler(bufferSize int, conn *net.Conn) SocketHandler {
@@ -96,7 +98,7 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 
 	packets := h.fragment(&msg)
 
-	LOG("Send %d packet(s)\n", len(packets))
+	logger.LOG("Send %d packet(s)\n", len(packets))
 	for _, p := range packets {
 		formedPacket := p.Deparse()
 		h.node.Write(formedPacket)
@@ -146,6 +148,6 @@ func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		LOG("Handling message failed for backend: %v\n", err.Error())
+		logger.LOG("Handling message failed for backend: %v\n", err.Error())
 	}
 }

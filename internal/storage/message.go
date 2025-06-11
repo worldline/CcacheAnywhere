@@ -1,14 +1,9 @@
 package backend
 
 import (
-	"ccache-backend-client/utils"
 	"fmt"
-)
 
-var (
-	LOG  = utils.Inform
-	WARN = utils.WarnUser
-	TERM = utils.ReportError
+	. "ccache-backend-client/internal/logger"
 )
 
 type Response struct {

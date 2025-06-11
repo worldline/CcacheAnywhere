@@ -1,4 +1,4 @@
-package utils
+package logger
 
 import (
 	"fmt"
@@ -29,19 +29,19 @@ func OpenLogFile() error {
 	return nil
 }
 
-func Inform(v string, args ...any) {
+func LOG(v string, args ...any) {
 	if DEBUG_ENABLED {
 		infoLogger.Printf(v, args...)
 	}
 }
 
-func WarnUser(v string, args ...any) {
+func WARN(v string, args ...any) {
 	if DEBUG_ENABLED {
 		warningLogger.Printf(v, args...)
 	}
 }
 
-func ReportError(args ...any) {
+func TERM(args ...any) {
 	if DEBUG_ENABLED {
 		errorLogger.Fatalln(args...)
 	}
