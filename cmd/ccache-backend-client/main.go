@@ -41,20 +41,20 @@ func parseArgs() error {
 	if len(os.Args) < 4 {
 		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
 			" [optional: --debug]")
-		return fmt.Errorf("Incorrect usage!\n")
+		return fmt.Errorf("incorrect usage")
 	}
 
 	flag.StringVar(&com.SOCKET_PATH, "socket", "", "Domain socket path for ccache")
 	flag.IntVar(&com.FIXED_BUF_SIZE, "bufsize", 8192, "Size of socket buffer")
-	com.PACK_SIZE = com.FIXED_BUF_SIZE / 2
 	flag.StringVar(&BACKEND_TYPE, "url", "", "Backend's url")
 	flag.BoolVar(&DEBUG_ENABLED, "debug", false, "Debug flag")
 	flag.Parse()
 
+	com.PACK_SIZE = com.FIXED_BUF_SIZE / 2
 	if com.SOCKET_PATH == "" || BACKEND_TYPE == "" {
 		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
 			" [optional: --debug]")
-		return fmt.Errorf("Incorrect usage!\n")
+		return fmt.Errorf("incorrect usage")
 	}
 
 	// create log file if debug flag is set
@@ -70,7 +70,7 @@ func parseArgs() error {
 
 func main() {
 	if err := parseArgs(); err != nil {
-		log.Fatal(err)
+		log.Fatal("Parsing error!", err)
 	}
 
 	execDir, err := os.Executable()
