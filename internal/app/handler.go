@@ -13,8 +13,8 @@ import (
 	storage "ccache-backend-client/internal/storage"
 )
 
-func CreateSocketHandler(bufferSize int, conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn, PacketSize: bufferSize}
+func CreateSocketHandler(conn *net.Conn) SocketHandler {
+	return SocketHandler{node: *conn}
 }
 
 // Format of inputted url http://secret-key@domainname.com/path/to/folder|attribute=value
@@ -59,60 +59,37 @@ type Handler interface {
 }
 
 type SocketHandler struct {
-	mu         sync.Mutex
-	node       net.Conn
-	curID      uint8
-	respCode   uint8
-	packets    []com.Packet
-	PacketSize int
-}
-
-func (h *SocketHandler) fragment(msg *storage.Message) []com.Packet {
-	var packets []com.Packet
-	data, status := (*msg).Read()
-	h.respCode = uint8(status)
-	msgType := (*msg).Type()
-
-	if msgType > 3 {
-		data = make([]byte, 400)
-		rand.Read(data)
-	}
-
-	bodySize := h.PacketSize - 16
-	chunksNum := (len(data) + bodySize - 1) / bodySize
-	for i := range chunksNum {
-		start := i * bodySize
-		end := min(start+bodySize, len(data))
-
-		packet := com.CreatePacket(data[start:end], msgType, h.respCode, h.curID, uint8(chunksNum-i-1))
-		packets = append(packets, packet)
-	}
-
-	return packets
+	mu      sync.Mutex
+	node    net.Conn
+	curID   uint8
+	packets []com.Packet
 }
 
 // deparse message and send it over network
 func (h *SocketHandler) Handle(msg storage.Message) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	data, status := msg.Read()
+	msgType := msg.Type()
 
-	packets := h.fragment(&msg)
-
-	logger.LOG("Send %d packet(s)\n", len(packets))
-	for _, p := range packets {
-		formedPacket := p.Deparse()
-		h.node.Write(formedPacket)
+	if msgType > 3 {
+		data = make([]byte, 40)
+		rand.Read(data)
 	}
+
+	packet := com.CreatePacket(data, msgType, uint8(status), h.curID, 0)
+	formedPacket := packet.Deparse()
+	logger.LOG("Emit %v", string(formedPacket))
+	h.node.Write(formedPacket)
+	// fmt.Printf("Emit timepoint: %s\n", time.Now().Format("2006-01-02 15:04:05.000"))
 }
 
+// Deprecated: Used to be necessary for fragmentation. Use assemble method from messege.go
 func (h *SocketHandler) Assemble(p com.Packet) (storage.Message, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	h.packets = append(h.packets, p)
-	h.respCode = p.MsgID
 
-	if p.Rest != 0 { // wait for final fragment
+	if p.FDesc != 0 { // wait for final fragment
 		return nil, nil
 	}
 

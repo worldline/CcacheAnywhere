@@ -50,7 +50,6 @@ func parseArgs() error {
 	flag.BoolVar(&DEBUG_ENABLED, "debug", false, "Debug flag")
 	flag.Parse()
 
-	com.PACK_SIZE = com.FIXED_BUF_SIZE / 2
 	if com.SOCKET_PATH == "" || BACKEND_TYPE == "" {
 		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
 			" [optional: --debug]")

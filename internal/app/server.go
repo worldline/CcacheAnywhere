@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"ccache-backend-client/internal/com"
 	"ccache-backend-client/internal/constants"
 	"ccache-backend-client/internal/logger"
+	storage "ccache-backend-client/internal/storage"
 )
 
 type SocketServer struct {
@@ -93,29 +95,30 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	socketInterface := CreateSocketHandler(com.PACK_SIZE, &conn)
+	socketInterface := CreateSocketHandler(&conn)
 	backendInterface, err := CreateBackend(s.backendType)
 	if err != nil {
 		logger.WARN("%v\n", err.Error())
 		return
 	}
 
-	buf := make([]byte, com.FIXED_BUF_SIZE)
+	reader := bufio.NewReader(conn)
 	for {
-		n, err := conn.Read(buf)
+		buf, err := reader.ReadBytes(0xFF)
 		if err != nil {
 			logger.LOG("Connection closed: %d\n", fd.Fd())
 			return
 		}
 
-		if n > 0 {
-			packet, err := com.ParsePacket(buf[:n]) // should provide option serialized=true/false
+		if len(buf) > 0 {
+			buf := buf[:len(buf)-1]
+			packet, err := com.ParsePacket(buf)
 			if err != nil {
 				logger.LOG("Error with packet format: %v\n", err.Error())
 				continue
 			}
 
-			receivedMessage, err := socketInterface.Assemble(*packet)
+			receivedMessage, err := storage.Assemble(*packet)
 
 			if err != nil {
 				logger.LOG("Connection closing! %v\n", err)

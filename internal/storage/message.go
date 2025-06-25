@@ -3,6 +3,7 @@ package backend
 import (
 	"fmt"
 
+	"ccache-backend-client/internal/com"
 	. "ccache-backend-client/internal/logger"
 )
 
@@ -188,4 +189,23 @@ func (m *RmMessage) Write(b Backend) (err error) {
 
 func (m *RmMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
+}
+
+func Assemble(p com.Packet) (Message, error) {
+	var resultMessage Message
+	switch p.MsgType { // TODO create the messages
+	case 1:
+		resultMessage = &GetMessage{}
+	case 2:
+		resultMessage = &PutMessage{}
+	case 3:
+		resultMessage = &RmMessage{}
+	case 4:
+		resultMessage = &TestMessage{}
+	default:
+		return nil, fmt.Errorf("message type is not protocol coherent")
+	}
+
+	resultMessage.Create(p.Body)
+	return resultMessage, nil
 }
