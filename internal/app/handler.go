@@ -1,20 +1,19 @@
 package app
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
-	"sync"
 
-	"ccache-backend-client/internal/com"
+	"ccache-backend-client/internal/constants"
 	"ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
+	"ccache-backend-client/internal/tlv"
 )
 
 func CreateSocketHandler(conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn}
+	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(2 * int(constants.MaxFieldSize))}
 }
 
 // Format of inputted url http://secret-key@domainname.com/path/to/folder|attribute=value
@@ -59,62 +58,29 @@ type Handler interface {
 }
 
 type SocketHandler struct {
-	mu      sync.Mutex
-	node    net.Conn
-	curID   uint8
-	packets []com.Packet
+	node       net.Conn
+	serializer *tlv.Serializer
 }
 
 // deparse message and send it over network
 func (h *SocketHandler) Handle(msg storage.Message) {
 	data, status := msg.Read()
-	msgType := msg.Type()
+	msgType := msg.RespType()
 
-	if msgType > 3 {
-		data = make([]byte, 40)
-		rand.Read(data)
+	h.serializer.BeginMessage(0x01, uint16(msgType))
+	h.serializer.AddUint32Field(constants.TypeStatusCode, uint32(status))
+	switch msgType {
+	case constants.MsgTypeGetResponse:
+		h.serializer.AddField(constants.TypeValue, data)
+	case constants.MsgTypePutResponse:
+		// do we want to say we put?
+	case constants.MsgTypeDeleteResponse:
+		// do we want to say we deleted?
+	case constants.MsgTypeSetupReponse:
+		// if there is something to configure send it
 	}
 
-	packet := com.CreatePacket(data, msgType, uint8(status), h.curID, 0)
-	formedPacket := packet.Deparse()
-	logger.LOG("Emit %v", string(formedPacket))
-	h.node.Write(formedPacket)
-	// fmt.Printf("Emit timepoint: %s\n", time.Now().Format("2006-01-02 15:04:05.000"))
-}
-
-// Deprecated: Used to be necessary for fragmentation. Use assemble method from messege.go
-func (h *SocketHandler) Assemble(p com.Packet) (storage.Message, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.packets = append(h.packets, p)
-
-	if p.FDesc != 0 { // wait for final fragment
-		return nil, nil
-	}
-
-	var data []byte
-	for _, pck := range h.packets {
-		data = append(data, pck.Body[:pck.MsgLength]...)
-	}
-
-	var resultMessage storage.Message
-	switch p.MsgType { // TODO create the messages
-	case 1:
-		resultMessage = &storage.GetMessage{}
-	case 2:
-		resultMessage = &storage.PutMessage{}
-	case 3:
-		resultMessage = &storage.RmMessage{}
-	case 4:
-		resultMessage = &storage.TestMessage{}
-	default:
-		return nil, fmt.Errorf("message type is not protocol coherent")
-	}
-
-	resultMessage.Create(data)
-	h.packets = nil // reset after assembling a message successfully
-	return resultMessage, nil
+	h.node.Write(h.serializer.Bytes())
 }
 
 type BackendHandler struct {

@@ -34,7 +34,7 @@ func ParseAttributes(filename string) ([]Attribute, error) {
 	return attributes, nil
 }
 
-type StatusCode int
+type StatusCode uint8
 
 const (
 	SUCCESS = iota

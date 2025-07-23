@@ -7,17 +7,18 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"ccache-backend-client/internal/app"
-	"ccache-backend-client/internal/com"
 	. "ccache-backend-client/internal/logger"
+	"ccache-backend-client/internal/tlv"
 )
 
 var BACKEND_TYPE string
 
 func StartServer() {
-	server, err := app.NewServer(com.SOCKET_PATH, com.FIXED_BUF_SIZE, BACKEND_TYPE)
+	server, err := app.NewServer(tlv.SOCKET_PATH, tlv.FIXED_BUF_SIZE, BACKEND_TYPE)
 	if err != nil {
 		WARN("Error starting server %v\n", err.Error())
 		return
@@ -37,22 +38,23 @@ func StartServer() {
 	server.Start()
 }
 
-func parseArgs() error {
-	if len(os.Args) < 4 {
-		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
-			" [optional: --debug]")
-		return fmt.Errorf("incorrect usage")
-	}
+func parseArgs() (err error) {
+	tlv.SOCKET_PATH = os.Getenv("_CCACHE_SOCKET_PATH")
+	tlv.FIXED_BUF_SIZE, err = strconv.Atoi(os.Getenv("_CCACHE_BUFFER_SIZE"))
+	BACKEND_TYPE = os.Getenv("_CCACHE_REMOTE_URL")
 
-	flag.StringVar(&com.SOCKET_PATH, "socket", "", "Domain socket path for ccache")
-	flag.IntVar(&com.FIXED_BUF_SIZE, "bufsize", 8192, "Size of socket buffer")
-	flag.StringVar(&BACKEND_TYPE, "url", "", "Backend's url")
+	// countAttrs := os.Getenv("_CCACHE_NUM_ATTR")
+
+	// for i := range countAttrs {
+	// 	_ = os.Getenv("_CCACHE_ATTR_KEY_" + strconv.Itoa(i))
+	// 	_ = os.Getenv("_CCACHE_ATTR_VALUE_" + strconv.Itoa(i))
+	// }
+
 	flag.BoolVar(&DEBUG_ENABLED, "debug", false, "Debug flag")
 	flag.Parse()
 
-	if com.SOCKET_PATH == "" || BACKEND_TYPE == "" {
-		log.Println("Usage: ccache-backend-client --url=<string> --socket=<string> --bufsize=<uint>",
-			" [optional: --debug]")
+	if tlv.SOCKET_PATH == "" || BACKEND_TYPE == "" || err != nil {
+		log.Println("Make sure you are passing the environment variables!")
 		return fmt.Errorf("incorrect usage")
 	}
 

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"ccache-backend-client/internal/com"
 	"ccache-backend-client/internal/constants"
 	"ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
+	"ccache-backend-client/internal/tlv"
 )
 
 type SocketServer struct {
@@ -97,6 +97,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	}
 	socketInterface := CreateSocketHandler(&conn)
 	backendInterface, err := CreateBackend(s.backendType)
+	tlv_parser := tlv.NewParser()
+
 	if err != nil {
 		logger.WARN("%v\n", err.Error())
 		return
@@ -112,9 +114,9 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 
 		if len(buf) > 0 {
 			buf := buf[:len(buf)-1]
-			packet, err := com.ParsePacket(buf)
+			packet, err := tlv_parser.Parse(buf)
 			if err != nil {
-				logger.LOG("Error with packet format: %v\n", err.Error())
+				logger.LOG("Packet parsing: %v\n", err.Error())
 				continue
 			}
 

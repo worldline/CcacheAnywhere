@@ -3,8 +3,9 @@ package backend
 import (
 	"fmt"
 
-	"ccache-backend-client/internal/com"
+	"ccache-backend-client/internal/constants"
 	. "ccache-backend-client/internal/logger"
+	"ccache-backend-client/internal/tlv"
 )
 
 type Response struct {
@@ -16,8 +17,8 @@ type Response struct {
 type Message interface {
 	Write(b Backend) error
 	Read() ([]byte, StatusCode)
-	Create([]byte) error
-	Type() uint8
+	Create(*tlv.Message) error
+	RespType() uint16
 }
 
 type TestMessage struct {
@@ -25,11 +26,11 @@ type TestMessage struct {
 	response Response
 }
 
-func (m *TestMessage) Type() uint8 {
-	return 4
+func (m *TestMessage) RespType() uint16 {
+	return 0
 }
 
-func (m *TestMessage) Create(body []byte) error {
+func (m *TestMessage) Create(body *tlv.Message) error {
 	m.mid = "Test message"
 	return nil
 }
@@ -53,11 +54,15 @@ type SetupMessage struct {
 	response Response
 }
 
-func (m *SetupMessage) Type() uint8 {
-	return 0
+func (m *SetupMessage) RespType() uint16 {
+	return constants.MsgTypeSetupReponse
 }
 
-func (m *SetupMessage) Create(body []byte) error {
+func (m *SetupMessage) Create(body *tlv.Message) error {
+	// Parse them
+	// SetupTypeVersion check if we can do this
+	// SetupTypeConnectTimeout configure the local timeout
+	// SetupTypeOperationTimeout configure this too
 	m.mid = "Setup message"
 	return nil
 }
@@ -76,16 +81,13 @@ type GetMessage struct {
 	response Response
 }
 
-func (m *GetMessage) Type() uint8 {
-	return 1
+func (m *GetMessage) RespType() uint16 {
+	return constants.MsgTypeGetResponse
 }
 
-func (m *GetMessage) Create(body []byte) error {
+func (m *GetMessage) Create(body *tlv.Message) error {
 	m.mid = "Get Message"
-	if len(body) < 20 {
-		return fmt.Errorf("key should be at least of length 20")
-	}
-	m.key = body[:20]
+	m.key = body.FindField(constants.TypeKey).Data
 	return nil
 }
 
@@ -117,18 +119,17 @@ type PutMessage struct {
 	response      Response
 }
 
-func (m *PutMessage) Type() uint8 {
-	return 2
+func (m *PutMessage) RespType() uint16 {
+	return constants.MsgTypePutResponse
 }
 
-func (m *PutMessage) Create(body []byte) error {
+func (m *PutMessage) Create(body *tlv.Message) error {
 	m.mid = "Put Message"
-	if len(body) < 20 {
-		return fmt.Errorf("key should be at least of length 20")
-	}
-	m.key = body[:20]
-	m.value = body[20 : len(body)-1]
-	m.onlyIfMissing = int(body[len(body)-1]) != 0
+	m.key = body.FindField(constants.TypeKey).Data
+	m.value = body.FindField(constants.TypeValue).Data
+
+	flags := body.FindField(constants.TypeFlags).Data[0]
+	m.onlyIfMissing = flags&constants.OverwriteFlag != 0
 	return nil
 }
 
@@ -158,16 +159,13 @@ type RmMessage struct {
 	response Response
 }
 
-func (m *RmMessage) Type() uint8 {
-	return 3
+func (m *RmMessage) RespType() uint16 {
+	return constants.MsgTypeDeleteResponse
 }
 
-func (m *RmMessage) Create(body []byte) error {
+func (m *RmMessage) Create(body *tlv.Message) error {
 	m.mid = "Remove Message"
-	if len(body) < 20 {
-		return fmt.Errorf("key should be at least of length 20")
-	}
-	m.key = body[:20]
+	m.key = body.FindField(constants.TypeKey).Data
 	return nil
 }
 
@@ -191,21 +189,21 @@ func (m *RmMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
 }
 
-func Assemble(p com.Packet) (Message, error) {
+func Assemble(p tlv.Message) (Message, error) {
 	var resultMessage Message
-	switch p.MsgType { // TODO create the messages
-	case 1:
+	switch p.Type { // TODO create the messages
+	case constants.MsgTypeGet:
 		resultMessage = &GetMessage{}
-	case 2:
+	case constants.MsgTypePut:
 		resultMessage = &PutMessage{}
-	case 3:
+	case constants.MsgTypeDelete:
 		resultMessage = &RmMessage{}
-	case 4:
-		resultMessage = &TestMessage{}
+	case constants.MsgTypeSetup:
+		resultMessage = &SetupMessage{}
 	default:
 		return nil, fmt.Errorf("message type is not protocol coherent")
 	}
 
-	resultMessage.Create(p.Body)
+	resultMessage.Create(&p)
 	return resultMessage, nil
 }
