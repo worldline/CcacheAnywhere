@@ -11,7 +11,9 @@ import (
 	"syscall"
 
 	"ccache-backend-client/internal/app"
+	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
+	storage "ccache-backend-client/internal/storage"
 	"ccache-backend-client/internal/tlv"
 )
 
@@ -43,12 +45,13 @@ func parseArgs() (err error) {
 	tlv.FIXED_BUF_SIZE, err = strconv.Atoi(os.Getenv("_CCACHE_BUFFER_SIZE"))
 	BACKEND_TYPE = os.Getenv("_CCACHE_REMOTE_URL")
 
-	// countAttrs := os.Getenv("_CCACHE_NUM_ATTR")
+	countAttrs := os.Getenv("_CCACHE_NUM_ATTR")
 
-	// for i := range countAttrs {
-	// 	_ = os.Getenv("_CCACHE_ATTR_KEY_" + strconv.Itoa(i))
-	// 	_ = os.Getenv("_CCACHE_ATTR_VALUE_" + strconv.Itoa(i))
-	// }
+	for i := range countAttrs {
+		key := os.Getenv("_CCACHE_ATTR_KEY_" + strconv.Itoa(i))
+		value := os.Getenv("_CCACHE_ATTR_VALUE_" + strconv.Itoa(i))
+		storage.BackendAttributes = append(storage.BackendAttributes, storage.Attribute{Key: key, Value: value})
+	}
 
 	flag.BoolVar(&DEBUG_ENABLED, "debug", false, "Debug flag")
 	flag.Parse()

@@ -13,6 +13,8 @@ type Attribute struct {
 	Key      string
 }
 
+var BackendAttributes []Attribute
+
 func ParseAttributes(filename string) ([]Attribute, error) {
 	filePath := filepath.Join("./configs", filename)
 
@@ -26,12 +28,11 @@ func ParseAttributes(filename string) ([]Attribute, error) {
 		return nil, fmt.Errorf("failed to unmarshal JSON data: %v", err)
 	}
 
-	var attributes []Attribute
 	for key, value := range attributesMap {
-		attributes = append(attributes, Attribute{Key: key, Value: fmt.Sprintf("%v", value)})
+		BackendAttributes = append(BackendAttributes, Attribute{Key: key, Value: fmt.Sprintf("%v", value)})
 	}
 
-	return attributes, nil
+	return BackendAttributes, nil
 }
 
 type StatusCode uint8
