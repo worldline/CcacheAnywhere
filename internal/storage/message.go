@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"ccache-backend-client/internal/constants"
@@ -62,14 +63,36 @@ func (m *SetupMessage) RespType() uint16 {
 func (m *SetupMessage) Create(body *tlv.Message) error {
 	// Parse them
 	// SetupTypeVersion check if we can do this
+	field := body.FindField(uint8(constants.SetupTypeVersion))
+	if field != nil {
+		value := binary.LittleEndian.Uint16(field.Data)
+		if value != 0x01 {
+			m.response.message = append(m.response.message, 0x01)
+			m.response.status = REDIRECT
+		}
+	}
 	// SetupTypeConnectTimeout configure the local timeout
+	field = body.FindField(uint8(constants.SetupTypeConnectTimeout))
+	if field != nil {
+		m.response.message = append(m.response.message, 0x01)
+		m.response.status = REDIRECT
+	}
 	// SetupTypeOperationTimeout configure this too
+	field = body.FindField(uint8(constants.SetupTypeOperationTimeout))
+	if field != nil {
+		m.response.message = append(m.response.message, 0x01)
+		m.response.status = REDIRECT
+	}
 	m.mid = "Setup message"
 	return nil
 }
 
 func (m *SetupMessage) Write(b Backend) error {
-	return fmt.Errorf("writing SetupMessage to backend")
+	if m.response.status == REDIRECT {
+		return fmt.Errorf("request change in configuration")
+	}
+	m.response.status = SUCCESS
+	return nil
 }
 
 func (m *SetupMessage) Read() ([]byte, StatusCode) {
@@ -98,6 +121,8 @@ func (m *GetMessage) Write(b Backend) (err error) {
 		if bf, ok := err.(*BackendFailure); ok {
 			m.response.status = b.ResolveProtocolCode(bf.Code)
 		}
+	} else {
+		m.response.status = SUCCESS
 	}
 
 	m.response.message = _resp
@@ -130,7 +155,7 @@ func (m *PutMessage) Create(body *tlv.Message) error {
 	m.value = body.FindField(constants.TypeValue).Data
 
 	flags := body.FindField(constants.TypeFlags).Data[0]
-	m.onlyIfMissing = flags&constants.OverwriteFlag != 0
+	m.onlyIfMissing = flags&constants.OverwriteFlag == 0x0
 	return nil
 }
 
@@ -140,6 +165,8 @@ func (m *PutMessage) Write(b Backend) (err error) {
 		if bf, ok := err.(*BackendFailure); ok {
 			m.response.status = b.ResolveProtocolCode(bf.Code)
 		}
+	} else {
+		m.response.status = SUCCESS
 	}
 
 	if _resp {
@@ -176,6 +203,8 @@ func (m *RmMessage) Write(b Backend) (err error) {
 		if bf, ok := err.(*BackendFailure); ok {
 			m.response.status = b.ResolveProtocolCode(bf.Code)
 		}
+	} else {
+		m.response.status = SUCCESS
 	}
 
 	if _resp {
