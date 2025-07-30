@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -104,30 +103,34 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 		return
 	}
 
-	reader := bufio.NewReader(conn)
+	persistentBuffer := make([]byte, 0)
+	buf := make([]byte, 1024)
 	for {
-		buf, err := reader.ReadBytes(0xFF)
+		n, err := conn.Read(buf)
 		if err != nil {
 			logger.LOG("Connection closed: %d\n", fd.Fd())
 			return
 		}
 
-		if len(buf) > 0 {
-			buf := buf[:len(buf)-1]
-			packet, err := tlv_parser.Parse(buf)
+		if n > 0 {
+			logger.LOG("RecvBuffer: %v\n", persistentBuffer)
+			persistentBuffer = append(persistentBuffer, buf[:n]...)
+			packet, err := tlv_parser.Parse(persistentBuffer)
 			if err != nil {
 				logger.LOG("Packet parsing: %v\n", err.Error())
 				continue
 			}
+			logger.LOG("Received %v\n", packet.Fields)
 
 			receivedMessage, err := storage.Assemble(*packet)
+			persistentBuffer = persistentBuffer[:0]
 
 			if err != nil {
 				logger.LOG("Connection closing! %v\n", err)
 				return
 			}
 
-			if receivedMessage != nil {
+			if receivedMessage != nil { // handling
 				logger.LOG("Server: Handle packet\n")
 				backendInterface.Handle(receivedMessage)
 				logger.LOG("Server: Socket send\n")
@@ -140,13 +143,10 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 }
 
 func (s *SocketServer) monitorInactivity() {
-	for {
-		select {
-		case <-s.inactivityTimer.C:
-			logger.LOG("No activity for %v Minutes. Shutting down!\n", constants.INACTIVITY_TIMEOUT.Minutes())
-			s.Cleanup()
-			os.Exit(0)
-		}
+	for range s.inactivityTimer.C {
+		logger.LOG("No activity for %v Minutes. Shutting down!\n", constants.INACTIVITY_TIMEOUT.Minutes())
+		s.Cleanup()
+		os.Exit(0)
 	}
 }
 
