@@ -43,9 +43,13 @@ const OverwriteFlag uint8 = 0x01
 
 // Status codes
 const (
-	StatusOK       uint8 = 0x00
-	StatusNotFound uint8 = 0x01
-	StatusError    uint8 = 0x02
+	LOCAL_ERROR uint8 = 0x00
+	NO_FILE     uint8 = 0x01
+	TIMEOUT     uint8 = 0x02
+	SIGWAIT     uint8 = 0x03
+	SUCCESS     uint8 = 0x04
+	REDIRECT    uint8 = 0x05
+	ERROR       uint8 = 0x06
 )
 
 // NDN Length encoding constants

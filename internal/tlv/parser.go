@@ -26,10 +26,6 @@ func (p *Parser) Parse(data []byte) (*Message, error) {
 	pos := 4
 
 	for pos < len(data) {
-		if pos+2 > len(data) {
-			return nil, constants.ErrTruncatedData
-		}
-
 		fieldType := data[pos]
 		pos += 1
 

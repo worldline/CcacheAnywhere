@@ -38,11 +38,11 @@ func encodeLength(buf []byte, length uint32) int {
 		return 1
 	} else if length <= 0xFFFF {
 		buf[0] = constants.Length3ByteFlag
-		binary.BigEndian.PutUint16(buf[1:], uint16(length))
+		binary.LittleEndian.PutUint16(buf[1:], uint16(length))
 		return 3
 	} else {
 		buf[0] = constants.Length5ByteFlag
-		binary.BigEndian.PutUint32(buf[1:], length)
+		binary.LittleEndian.PutUint32(buf[1:], length)
 		return 5
 	}
 }
@@ -62,13 +62,13 @@ func decodeLength(buf []byte) (uint32, int, error) {
 		if len(buf) < 3 {
 			return 0, 0, constants.ErrTruncatedData
 		}
-		length := binary.BigEndian.Uint16(buf[1:3])
+		length := binary.LittleEndian.Uint16(buf[1:3])
 		return uint32(length), 3, nil
 	} else if firstByte == constants.Length5ByteFlag {
 		if len(buf) < 5 {
 			return 0, 0, constants.ErrTruncatedData
 		}
-		length := binary.BigEndian.Uint32(buf[1:5])
+		length := binary.LittleEndian.Uint32(buf[1:5])
 		return length, 5, nil
 	}
 

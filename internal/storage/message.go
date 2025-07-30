@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"ccache-backend-client/internal/constants"
+	//lint:ignore ST1001 do want pretty LOG function
 	. "ccache-backend-client/internal/logger"
 	"ccache-backend-client/internal/tlv"
 )

@@ -27,7 +27,7 @@ func (s *Serializer) BeginMessage(version uint16, msgType uint16) error {
 	}
 
 	binary.LittleEndian.PutUint16(s.buffer, version)
-	binary.LittleEndian.PutUint16(s.buffer, msgType)
+	binary.LittleEndian.PutUint16(s.buffer[2:], msgType)
 	s.pos += 4
 	return nil
 }
@@ -51,6 +51,13 @@ func (s *Serializer) AddBoolField(fieldTag uint8, value bool) error {
 	return s.addFieldInternal(fieldTag, data)
 }
 
+// AddUint8Field adds a uint8 field
+func (s *Serializer) AddUint8Field(fieldTag uint8, value uint8) error {
+	data := make([]byte, 1)
+	data[0] = value
+	return s.addFieldInternal(fieldTag, data)
+}
+
 // AddUint32Field adds a uint32 field
 func (s *Serializer) AddUint32Field(fieldTag uint8, value uint32) error {
 	data := make([]byte, 4)
@@ -60,21 +67,21 @@ func (s *Serializer) AddUint32Field(fieldTag uint8, value uint32) error {
 
 // addFieldInternal handles the actual field serialization
 func (s *Serializer) addFieldInternal(fieldTag uint8, data []byte) error {
-	dataLen := uint32(len(data))
+	dataLen := uint32(len(data)) // TODO uint64
 
 	if dataLen > constants.MaxFieldSize {
 		return constants.ErrFieldTooLarge
 	}
 
-	// Calculate space needed: 2 bytes type + variable length + data
+	// Calculate space needed: 1 bytes tag + variable length + data
 	lengthEncSize := lengthEncodingSize(dataLen)
-	needed := 2 + lengthEncSize + len(data)
+	needed := 1 + lengthEncSize + len(data)
 
 	if s.pos+needed > len(s.buffer) {
 		return constants.ErrFieldTooLarge
 	}
 
-	// Write field type (2 bytes, big endian)
+	// Write field type (1 byte, little endian)
 	s.buffer[s.pos] = fieldTag
 	s.pos += 1
 

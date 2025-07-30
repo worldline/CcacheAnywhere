@@ -13,7 +13,7 @@ import (
 )
 
 func CreateSocketHandler(conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(2 * int(constants.MaxFieldSize))}
+	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(int(constants.MaxFieldSize))}
 }
 
 // Format of inputted url http://secret-key@domainname.com/path/to/folder|attribute=value
@@ -67,8 +67,8 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 	data, status := msg.Read()
 	msgType := msg.RespType()
 
-	h.serializer.BeginMessage(0x01, uint16(msgType))
-	h.serializer.AddUint32Field(constants.TypeStatusCode, uint32(status))
+	h.serializer.BeginMessage(uint16(0x01), uint16(msgType))
+	h.serializer.AddUint8Field(constants.TypeStatusCode, uint8(status))
 	switch msgType {
 	case constants.MsgTypeGetResponse:
 		h.serializer.AddField(constants.TypeValue, data)

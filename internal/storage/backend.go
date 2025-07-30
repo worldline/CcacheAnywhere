@@ -37,11 +37,11 @@ func ParseAttributes(filename string) ([]Attribute, error) {
 type StatusCode uint8
 
 const (
-	SUCCESS = iota
-	SIGWAIT
-	LOCAL_ERR
+	LOCAL_ERR = iota
 	NO_FILE
 	TIMEOUT
+	SIGWAIT
+	SUCCESS
 	REDIRECT
 	ERROR
 )

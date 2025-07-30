@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
 
 	"cloud.google.com/go/storage"
