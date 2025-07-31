@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
 	"ccache-backend-client/internal/app"
+
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
@@ -27,17 +26,8 @@ func StartServer() {
 	}
 
 	defer server.Cleanup()
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		WARN("Signal Shutdown... Exiting!")
-		server.Cleanup()
-		os.Exit(0)
-	}()
-
 	server.Start()
+	LOG("Program exiting!")
 }
 
 func parseArgs() (err error) {

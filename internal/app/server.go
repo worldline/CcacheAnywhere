@@ -1,10 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
+	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"ccache-backend-client/internal/constants"
@@ -49,42 +54,76 @@ func NewServer(socketPath string, bufferSize int, btype string) (*SocketServer, 
 
 func (s *SocketServer) Start() {
 	defer s.listener.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	var workerCount int64
+
+	// Launch goroutine to listen for signals
+	go func() {
+		sig := <-sigChan
+		logger.LOG("Received signal: %s, shutting down gracefully...\n", sig)
+		cancel()
+		s.listener.Close()
+	}()
+
 	logger.LOG("Server started, listening on: %v\n", s.socketPath)
 	logger.LOG("Limiting connections to a maximum of %d clients!\n", constants.MAX_PARALLEL_CLIENTS)
 
-	go s.monitorInactivity()
+	go s.monitorInactivity(ctx, cancel)
+
 	semaphore := make(chan struct{}, constants.MAX_PARALLEL_CLIENTS)
 
 	for {
-		conn, err := s.listener.Accept()
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		select {
+		case <-ctx.Done():
+			logger.LOG("Shutdown signal received! Exiting main loop.\n")
+			s.wg.Wait()
+			return
+		default:
+			conn, err := s.listener.Accept()
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					return
+				} else if opErr, ok := err.(*net.OpError); ok {
+					if strings.Contains(opErr.Err.Error(), "use of closed network connection") {
+						return
+					}
+				}
+				logger.LOG("Accept error: %v ...continuing!\n", err)
+				continue
+			}
+
+			fd, err := conn.(*net.UnixConn).File()
+			if err != nil {
 				return
 			}
-			logger.LOG("Error accepting connection: %v\n", err)
-			continue
+			logger.LOG("Request from client over fd: %d\n", fd.Fd())
+
+			s.resetInactivityTimer()
+
+			semaphore <- struct{}{}
+			s.wg.Add(1)
+			atomic.AddInt64(&workerCount, 1)
+			logger.LOG("Accepted connection: %d TOTAL=%v\n", fd.Fd(), workerCount)
+
+			go func(c net.Conn) {
+				defer func() {
+					c.Close()
+					<-semaphore // Release semaphore
+					s.wg.Done()
+					atomic.AddInt64(&workerCount, -1)
+				}()
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					s.handleConnection(c)
+				}
+			}(conn)
 		}
-
-		fd, err := conn.(*net.UnixConn).File()
-		if err != nil {
-			return
-		}
-		logger.LOG("Request from client over fd: %d\n", fd.Fd())
-
-		s.resetInactivityTimer()
-		semaphore <- struct{}{}
-		s.wg.Add(1)
-		logger.LOG("Accepted new connection from: %d\n", fd.Fd())
-
-		go func(c net.Conn) {
-			defer func() {
-				c.Close()
-				<-semaphore // Release semaphore
-				s.wg.Done()
-			}()
-
-			s.handleConnection(c)
-		}(conn)
 	}
 }
 
@@ -113,11 +152,9 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 		}
 
 		if n > 0 {
-			logger.LOG("RecvBuffer: %v\n", persistentBuffer)
 			persistentBuffer = append(persistentBuffer, buf[:n]...)
 			packet, err := tlv_parser.Parse(persistentBuffer)
 			if err != nil {
-				logger.LOG("Packet parsing: %v\n", err.Error())
 				continue
 			}
 			logger.LOG("Received %v\n", packet.Fields)
@@ -142,11 +179,18 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *SocketServer) monitorInactivity() {
-	for range s.inactivityTimer.C {
-		logger.LOG("No activity for %v Minutes. Shutting down!\n", constants.INACTIVITY_TIMEOUT.Minutes())
-		s.Cleanup()
-		os.Exit(0)
+func (s *SocketServer) monitorInactivity(ctx context.Context, cancel context.CancelFunc) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.LOG("Inactivity monitor received shutdown signal. Exiting.\n")
+			return
+		case <-s.inactivityTimer.C:
+			cancel()
+			logger.LOG("No activity for %v Minutes. Shutting down!\n", constants.INACTIVITY_TIMEOUT.Minutes())
+			s.listener.Close()
+			return
+		}
 	}
 }
 
