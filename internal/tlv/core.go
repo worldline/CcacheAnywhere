@@ -3,6 +3,7 @@ package tlv
 import (
 	"ccache-backend-client/internal/constants"
 	"encoding/binary"
+	"fmt"
 )
 
 var (
@@ -15,6 +16,15 @@ type TLVField struct {
 	Tag    uint8
 	Length uint32
 	Data   []byte // Slice pointing to original buffer
+}
+
+func (fld TLVField) String() string {
+	num := min(len(fld.Data), 20)
+	send := max(len(fld.Data)-20, 20)
+	if send > len(fld.Data) {
+		return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v}", fld.Tag, fld.Length, fld.Data[:num])
+	}
+	return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v..%v}", fld.Tag, fld.Length, fld.Data[:num], fld.Data[send:])
 }
 
 type Message struct {
