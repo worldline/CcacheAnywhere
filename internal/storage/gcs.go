@@ -18,7 +18,7 @@ import (
 
 // setMetadata sets an object's metadata.
 // run this using a go coroutine to set the meta data of the object in the background
-func setMetadata(w *storage.Writer, bucket, object string) error {
+func setMetadata(bucket, object string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -43,7 +43,7 @@ func setMetadata(w *storage.Writer, bucket, object string) error {
 	if _, err := o.Update(ctx, objectAttrsToUpdate); err != nil {
 		return fmt.Errorf("ObjectHandle(%q).Update: %w", object, err)
 	}
-	fmt.Fprintf(w, "Updated custom metadata for object %v in bucket %v.\n", object, bucket)
+	LOG("Updated custom metadata for object %v in bucket %v.\n", object, bucket)
 	return nil
 }
 
@@ -100,19 +100,19 @@ func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend
 				defaultAttrs.StorageClass = attr.Value
 			default:
 				defaultAttrs.StorageClass = "STANDARD"
-				LOG("Unknown storage class: %s - defaulting to Standard\n", attr.Value)
+				LOG("Unknown storage class: %s - defaulting to Standard", attr.Value)
 			}
 		case "location":
 			defaultAttrs.Location = attr.Value
 		default:
-			LOG("Unknown attribute: %s\n", attr.Key)
+			LOG("Unknown attribute: %s", attr.Key)
 		}
 	}
 
 	// Setup credentials options
 	credsOption, err := defaultAttrs.getCredentialsOption()
 	if err != nil {
-		LOG("Failed to setup credentials: %v\n", err)
+		LOG("Failed to setup credentials: %v", err)
 		return nil
 	}
 
@@ -120,7 +120,7 @@ func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, credsOption)
 	if err != nil {
-		LOG("Error creating GCS client: %v\n", err)
+		LOG("Error creating GCS client: %v", err)
 		return nil
 	}
 
@@ -193,7 +193,7 @@ func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
 	}
 
 	// remember to update custom time
-	go setMetadata(objHandle.NewWriter(ctx), h.bucketName, objectName)
+	go setMetadata(h.bucketName, objectName)
 	return body, nil
 }
 

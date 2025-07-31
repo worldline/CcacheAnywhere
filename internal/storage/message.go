@@ -39,7 +39,7 @@ func (m *TestMessage) Create(body *tlv.Message) error {
 
 func (m *TestMessage) Write(b Backend) error {
 	if b != nil {
-		LOG("Backend running successfully!\n")
+		LOG("Backend running successfully!")
 	}
 
 	m.response.message = []byte{0, 1, 2, 3, 4, 5, 0, 0, 0}

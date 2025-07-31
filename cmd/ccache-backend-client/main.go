@@ -21,8 +21,8 @@ var BACKEND_TYPE string
 func StartServer() {
 	server, err := app.NewServer(tlv.SOCKET_PATH, tlv.FIXED_BUF_SIZE, BACKEND_TYPE)
 	if err != nil {
-		WARN("Error starting server %v\n", err.Error())
-		return
+		WARN(err.Error())
+		panic("starting server failed!")
 	}
 
 	defer server.Cleanup()
@@ -48,7 +48,7 @@ func parseArgs() (err error) {
 
 	if tlv.SOCKET_PATH == "" || BACKEND_TYPE == "" || err != nil {
 		log.Println("Make sure you are passing the environment variables!")
-		return fmt.Errorf("incorrect usage")
+		return fmt.Errorf("incorrect usage: %v", err)
 	}
 
 	// create log file if debug flag is set
@@ -76,6 +76,6 @@ func main() {
 	if err != nil {
 		TERM(err)
 	}
-	LOG("Start server!\n")
+	LOG("Start server!")
 	StartServer()
 }

@@ -92,6 +92,6 @@ func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		logger.LOG("Handling message failed for backend: %v\n", err.Error())
+		logger.LOG("Handling message failed for backend: %v", err.Error())
 	}
 }

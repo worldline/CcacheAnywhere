@@ -42,7 +42,7 @@ func LOG(v string, args ...any) {
 
 		filename := filepath.Base(file)
 		message := fmt.Sprintf(v, args...)
-		infoLogger.Printf("%s:%d: %s", filename, line, message)
+		infoLogger.Printf("%s:%d: %s\n", filename, line, message)
 	}
 }
 
@@ -56,7 +56,7 @@ func WARN(v string, args ...any) {
 
 		filename := filepath.Base(file)
 		message := fmt.Sprintf(v, args...)
-		warningLogger.Printf("%s:%d: %s", filename, line, message)
+		warningLogger.Printf("%s:%d: %s\n", filename, line, message)
 	}
 }
 

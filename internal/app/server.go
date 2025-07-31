@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"ccache-backend-client/internal/constants"
-	"ccache-backend-client/internal/logger"
+	//lint:ignore ST1001 do want nice LOG operations
+	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
 	"ccache-backend-client/internal/tlv"
 )
@@ -30,7 +31,7 @@ type SocketServer struct {
 
 func NewServer(socketPath string, bufferSize int, btype string) (*SocketServer, error) {
 	if _, err := os.Stat(socketPath); err == nil {
-		logger.LOG("try os.Stat for %v\n", socketPath)
+		WARN("Socket file exists at %v", socketPath)
 		conn, err := net.Dial("unix", socketPath)
 		if err == nil {
 			conn.Close()
@@ -63,13 +64,13 @@ func (s *SocketServer) Start() {
 	// Launch goroutine to listen for signals
 	go func() {
 		sig := <-sigChan
-		logger.LOG("Received signal: %s, shutting down gracefully...\n", sig)
+		LOG("Received signal: %s, shutting down gracefully...", sig)
 		cancel()
 		s.listener.Close()
 	}()
 
-	logger.LOG("Server started, listening on: %v\n", s.socketPath)
-	logger.LOG("Limiting connections to a maximum of %d clients!\n", constants.MAX_PARALLEL_CLIENTS)
+	LOG("Server started, listening on: %v", s.socketPath)
+	LOG("Limiting connections to a maximum of %d clients!", constants.MAX_PARALLEL_CLIENTS)
 
 	go s.monitorInactivity(ctx, cancel)
 
@@ -78,7 +79,7 @@ func (s *SocketServer) Start() {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.LOG("Shutdown signal received! Exiting main loop.\n")
+			LOG("Shutdown signal received! Exiting main loop.")
 			s.wg.Wait()
 			return
 		default:
@@ -91,7 +92,7 @@ func (s *SocketServer) Start() {
 						return
 					}
 				}
-				logger.LOG("Accept error: %v ...continuing!\n", err)
+				LOG("Accept error: %v ...continuing!", err)
 				continue
 			}
 
@@ -99,14 +100,14 @@ func (s *SocketServer) Start() {
 			if err != nil {
 				return
 			}
-			logger.LOG("Request from client over fd: %d\n", fd.Fd())
+			LOG("Request from client over fd: %d", fd.Fd())
 
 			s.resetInactivityTimer()
 
 			semaphore <- struct{}{}
 			s.wg.Add(1)
 			atomic.AddInt64(&workerCount, 1)
-			logger.LOG("Accepted connection: %d TOTAL=%v\n", fd.Fd(), workerCount)
+			LOG("Accepted connection: %d TOTAL=%v", fd.Fd(), workerCount)
 
 			go func(c net.Conn) {
 				defer func() {
@@ -138,7 +139,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	tlv_parser := tlv.NewParser()
 
 	if err != nil {
-		logger.WARN("%v\n", err.Error())
+		WARN("%v", err.Error())
 		return
 	}
 
@@ -147,7 +148,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			logger.LOG("Connection closed: %d\n", fd.Fd())
+			LOG("Connection closed: %d", fd.Fd())
 			return
 		}
 
@@ -157,20 +158,20 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 			if err != nil {
 				continue
 			}
-			logger.LOG("Received %v\n", packet.Fields)
+			LOG("Received %v", packet.Fields)
 
 			receivedMessage, err := storage.Assemble(*packet)
 			persistentBuffer = persistentBuffer[:0]
 
 			if err != nil {
-				logger.LOG("Connection closing! %v\n", err)
+				LOG("Connection closing! %v", err)
 				return
 			}
 
 			if receivedMessage != nil { // handling
-				logger.LOG("Server: Handle packet\n")
+				LOG("Server: Handle packet")
 				backendInterface.Handle(receivedMessage)
-				logger.LOG("Server: Socket send\n")
+				LOG("Server: Socket send")
 				socketInterface.Handle(receivedMessage)
 			}
 		}
@@ -183,11 +184,11 @@ func (s *SocketServer) monitorInactivity(ctx context.Context, cancel context.Can
 	for {
 		select {
 		case <-ctx.Done():
-			logger.LOG("Inactivity monitor received shutdown signal. Exiting.\n")
+			LOG("Inactivity monitor received shutdown signal. Exiting.")
 			return
 		case <-s.inactivityTimer.C:
 			cancel()
-			logger.LOG("No activity for %v Minutes. Shutting down!\n", constants.INACTIVITY_TIMEOUT.Minutes())
+			LOG("No activity for %v Minutes. Shutting down!", constants.INACTIVITY_TIMEOUT.Minutes())
 			s.listener.Close()
 			return
 		}
@@ -206,6 +207,6 @@ func (s *SocketServer) resetInactivityTimer() {
 
 func (s *SocketServer) Cleanup() {
 	if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
-		logger.LOG("Error removing socket file: %v\n", err.Error())
+		LOG("Error removing socket file: %v", err.Error())
 	}
 }

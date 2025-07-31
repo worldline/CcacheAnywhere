@@ -167,12 +167,12 @@ func CreateHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBacke
 			if spltres[len(spltres)-1] != "" {
 				defaultHeaders.emplace(attr.Key, attr.Value)
 			} else {
-				LOG("HTTP header error\n")
+				LOG("HTTP header error")
 			}
 		case "url":
 			// TODO
 		default:
-			LOG("HTTP attribute '%s' not known!\n", attr.Key)
+			LOG("HTTP attribute '%s' not known!", attr.Key)
 		}
 	}
 
@@ -256,7 +256,7 @@ func (h *HttpStorageBackend) Get(key []byte) ([]byte, error) {
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return []byte{}, &BackendFailure{
-			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
+			Message: fmt.Sprintf("Failed to get %s from HTTP storage!", key),
 			Code:    http.StatusInternalServerError}
 	}
 
@@ -264,7 +264,7 @@ func (h *HttpStorageBackend) Get(key []byte) ([]byte, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return []byte{}, &BackendFailure{
-			Message: fmt.Sprintf("Failed to get %s from HTTP storage!\n", key),
+			Message: fmt.Sprintf("Failed to get %s from HTTP storage!", key),
 			Code:    0}
 	}
 	return body, nil
