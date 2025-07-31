@@ -7,16 +7,40 @@ import (
 	"path/filepath"
 )
 
+type StatusCode uint8
+
+const (
+	LOCAL_ERR = iota
+	NO_FILE
+	TIMEOUT
+	SIGWAIT
+	SUCCESS
+	REDIRECT
+	ERROR
+)
+
+type BackendFailure struct {
+	Message string
+	Code    int
+}
+
 type Attribute struct {
 	RawValue string
 	Value    string
 	Key      string
 }
 
+type Backend interface {
+	Get([]byte) ([]byte, error)
+	Put([]byte, []byte, bool) (bool, error)
+	Remove([]byte) (bool, error)
+	ResolveProtocolCode(int) StatusCode
+}
+
 var BackendAttributes []Attribute
 
 func ParseAttributes(filename string) ([]Attribute, error) {
-	filePath := filepath.Join("./configs", filename)
+	filePath := filepath.Join("configs", filename)
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -35,30 +59,6 @@ func ParseAttributes(filename string) ([]Attribute, error) {
 	return BackendAttributes, nil
 }
 
-type StatusCode uint8
-
-const (
-	LOCAL_ERR = iota
-	NO_FILE
-	TIMEOUT
-	SIGWAIT
-	SUCCESS
-	REDIRECT
-	ERROR
-)
-
-type BackendFailure struct {
-	Message string
-	Code    int
-}
-
 func (e *BackendFailure) Error() string {
 	return fmt.Sprintf("Failure: %s with status code %d", e.Message, e.Code)
-}
-
-type Backend interface {
-	Get([]byte) ([]byte, error)
-	Put([]byte, []byte, bool) (bool, error)
-	Remove([]byte) (bool, error)
-	ResolveProtocolCode(int) StatusCode
 }

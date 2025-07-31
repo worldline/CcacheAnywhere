@@ -16,6 +16,30 @@ import (
 	"google.golang.org/api/option"
 )
 
+type GCSAttributes struct {
+	CredentialsFile string
+	ProjectID       string
+	Endpoint        string
+	Timeout         time.Duration
+	StorageClass    string
+	Location        string
+}
+
+type GCSStorageBackend struct {
+	client       *storage.Client
+	bucketName   string
+	storageClass string
+	location     string
+	timeout      time.Duration
+}
+
+func NewGCSAttributes() *GCSAttributes {
+	return &GCSAttributes{
+		StorageClass: "STANDARD",
+		Timeout:      30 * time.Second,
+	}
+}
+
 // setMetadata sets an object's metadata.
 // run this using a go coroutine to set the meta data of the object in the background
 func setMetadata(bucket, object string) error {
@@ -47,30 +71,6 @@ func setMetadata(bucket, object string) error {
 	return nil
 }
 
-type GCSAttributes struct {
-	CredentialsFile string
-	ProjectID       string
-	Endpoint        string
-	Timeout         time.Duration
-	StorageClass    string
-	Location        string
-}
-
-func newGCSAttributes() *GCSAttributes {
-	return &GCSAttributes{
-		StorageClass: "STANDARD",
-		Timeout:      30 * time.Second,
-	}
-}
-
-type GCSStorageBackend struct {
-	client       *storage.Client
-	bucketName   string
-	storageClass string
-	location     string
-	timeout      time.Duration
-}
-
 func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) {
 	if attrs.CredentialsFile != "" {
 		return option.WithCredentialsFile(attrs.CredentialsFile), nil
@@ -78,9 +78,9 @@ func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) 
 	return option.WithCredentialsFile("/home/rocky/.config/gcloud/application_default_credentials.json"), nil
 }
 
-func CreateGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
+func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	// something of form gs://my_bucket_name
-	defaultAttrs := newGCSAttributes()
+	defaultAttrs := NewGCSAttributes()
 
 	for _, attr := range attributes {
 		switch attr.Key {
@@ -164,11 +164,11 @@ func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
 			Code:    404,
 		}
 	}
-	ctx := context.Background()
 	objectName = h.location + objectName
 
 	objHandle := h.client.Bucket(h.bucketName).Object(objectName)
 
+	ctx := context.Background()
 	reader, err := objHandle.NewReader(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {

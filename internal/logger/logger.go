@@ -1,6 +1,9 @@
+// ! This package is only used when the debug flag is enabled
+// otherwise the log file will not be created!
 package logger
 
 import (
+	"ccache-backend-client/internal/constants"
 	"fmt"
 	"log"
 	"os"
@@ -10,7 +13,6 @@ import (
 )
 
 var (
-	DEBUG_ENABLED bool
 	warningLogger *log.Logger
 	infoLogger    *log.Logger
 	errorLogger   *log.Logger
@@ -33,7 +35,7 @@ func OpenLogFile() error {
 }
 
 func LOG(v string, args ...any) {
-	if DEBUG_ENABLED {
+	if constants.DEBUG_ENABLED {
 		_, file, line, ok := runtime.Caller(1)
 		if !ok {
 			infoLogger.Printf(v, args...)
@@ -47,7 +49,7 @@ func LOG(v string, args ...any) {
 }
 
 func WARN(v string, args ...any) {
-	if DEBUG_ENABLED {
+	if constants.DEBUG_ENABLED {
 		_, file, line, ok := runtime.Caller(1)
 		if !ok {
 			infoLogger.Printf(v, args...)
@@ -61,7 +63,7 @@ func WARN(v string, args ...any) {
 }
 
 func TERM(args ...any) {
-	if DEBUG_ENABLED {
+	if constants.DEBUG_ENABLED {
 		errorLogger.Fatalln(args...)
 	}
 }

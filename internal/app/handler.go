@@ -7,13 +7,40 @@ import (
 	"strings"
 
 	"ccache-backend-client/internal/constants"
-	"ccache-backend-client/internal/logger"
+	//lint:ignore ST1001 do want pretty LOG function
+	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
 	"ccache-backend-client/internal/tlv"
 )
 
-func CreateSocketHandler(conn *net.Conn) SocketHandler {
+type Handler interface {
+	Handle(storage.Message)
+}
+
+type SocketHandler struct {
+	node       net.Conn
+	serializer *tlv.Serializer
+}
+
+type BackendHandler struct {
+	node storage.Backend
+}
+
+func NewSocketHandler(conn *net.Conn) SocketHandler {
 	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(int(constants.MaxFieldSize))}
+}
+
+func NewBackendHandler(url string) (*BackendHandler, error) {
+	prefix := strings.Split(url, ":")[0]
+	furl, _ := parseUrl(url)
+	switch prefix {
+	case "http":
+		return &BackendHandler{node: storage.NewHTTPBackend(furl, storage.BackendAttributes)}, nil
+	case "gs":
+		return &BackendHandler{node: storage.NewGCSBackend(furl, storage.BackendAttributes)}, nil
+	default:
+		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
+	}
 }
 
 // Format of inputted url http://secret-key@domainname.com/path/to/folder|attribute=value
@@ -40,28 +67,6 @@ func parseUrl(input string) (*url.URL, []storage.Attribute) {
 	return parsedUrl, attributes
 }
 
-func CreateBackend(url string) (*BackendHandler, error) {
-	prefix := strings.Split(url, ":")[0]
-	furl, _ := parseUrl(url)
-	switch prefix {
-	case "http":
-		return &BackendHandler{node: storage.CreateHTTPBackend(furl, storage.BackendAttributes)}, nil
-	case "gs":
-		return &BackendHandler{node: storage.CreateGCSBackend(furl, storage.BackendAttributes)}, nil
-	default:
-		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
-	}
-}
-
-type Handler interface {
-	Handle(storage.Message)
-}
-
-type SocketHandler struct {
-	node       net.Conn
-	serializer *tlv.Serializer
-}
-
 // deparse message and send it over network
 func (h *SocketHandler) Handle(msg storage.Message) {
 	data, status := msg.Read()
@@ -84,14 +89,10 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 	h.serializer.Reset()
 }
 
-type BackendHandler struct {
-	node storage.Backend
-}
-
 func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
 	if err != nil {
-		logger.LOG("Handling message failed for backend: %v", err.Error())
+		LOG("Handling message failed for backend: %v", err.Error())
 	}
 }

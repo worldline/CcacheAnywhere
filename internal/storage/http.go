@@ -16,6 +16,83 @@ import (
 	. "ccache-backend-client/internal/logger"
 )
 
+type HttpStorageBackend struct {
+	bearer string
+	url    urlib.URL
+	client *http.Client
+	layout Layout
+}
+
+type Layout int
+
+const (
+	bazel Layout = iota
+	flat
+	subdirs
+)
+
+type httpHeaders struct {
+	headers           map[string]string
+	bearerToken       string
+	connectionTimeout time.Duration
+	operationTimeout  time.Duration
+	layout            Layout
+}
+
+func NewHttpHeaders() *httpHeaders {
+	return &httpHeaders{
+		headers: make(map[string]string),
+	}
+}
+
+// TODO define a backendATTributes struct as argument for create
+// each create deals with it as it wishes
+func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
+	defaultHeaders := NewHttpHeaders()
+	for _, attr := range attributes {
+		switch attr.Key {
+		case "bearer-token":
+			defaultHeaders.bearerToken = attr.Value
+		case "connect-timeout":
+			defaultHeaders.connectionTimeout = parseTimeoutAttribute(attr.Value)
+		case "keep-alive":
+			// TODO
+		case "operation-timeout":
+			defaultHeaders.operationTimeout = parseTimeoutAttribute(attr.Value)
+		case "layout":
+			switch attr.Value {
+			case "bazel":
+				defaultHeaders.layout = bazel
+			case "flat":
+				defaultHeaders.layout = flat
+			case "subdirs":
+				defaultHeaders.layout = subdirs
+			default:
+				defaultHeaders.layout = flat
+			}
+		case "header":
+			spltres := strings.Split(attr.Value, "=")
+			if spltres[len(spltres)-1] != "" {
+				defaultHeaders.emplace(attr.Key, attr.Value)
+			} else {
+				LOG("HTTP header error")
+			}
+		case "url":
+			// TODO
+		default:
+			LOG("HTTP attribute '%s' not known!", attr.Key)
+		}
+	}
+
+	if url.User != nil {
+		defaultHeaders.bearerToken = url.User.String()
+	}
+
+	httpclient := http.Client{Timeout: defaultHeaders.connectionTimeout}
+	return &HttpStorageBackend{url: *url, client: &httpclient,
+		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
+}
+
 // URL format: http://HOST[:PORT][/PATH]
 func getUrl(u *urlib.URL) string {
 	if u.Host == "" {
@@ -86,37 +163,8 @@ func parseTimeoutAttribute(value string) time.Duration {
 	return time.Duration(timeout.Seconds())
 }
 
-type Layout int
-
-const (
-	bazel Layout = iota
-	flat
-	subdirs
-)
-
-type httpHeaders struct {
-	headers           map[string]string
-	bearerToken       string
-	connectionTimeout time.Duration
-	operationTimeout  time.Duration
-	layout            Layout
-}
-
-func newHttpHeaders() *httpHeaders {
-	return &httpHeaders{
-		headers: make(map[string]string),
-	}
-}
-
 func (h *httpHeaders) emplace(key string, value string) {
 	h.headers[key] = value
-}
-
-type HttpStorageBackend struct {
-	bearer string
-	url    urlib.URL
-	client *http.Client
-	layout Layout
 }
 
 func (h *HttpStorageBackend) ResolveProtocolCode(code int) StatusCode {
@@ -135,54 +183,6 @@ func (h *HttpStorageBackend) ResolveProtocolCode(code int) StatusCode {
 	} else {
 		return ERROR
 	}
-}
-
-// TODO define a backendATTributes struct as argument for create
-// each create deals with it as it wishes
-func CreateHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
-	defaultHeaders := newHttpHeaders()
-	for _, attr := range attributes {
-		switch attr.Key {
-		case "bearer-token":
-			defaultHeaders.bearerToken = attr.Value
-		case "connect-timeout":
-			defaultHeaders.connectionTimeout = parseTimeoutAttribute(attr.Value)
-		case "keep-alive":
-			// TODO
-		case "operation-timeout":
-			defaultHeaders.operationTimeout = parseTimeoutAttribute(attr.Value)
-		case "layout":
-			switch attr.Value {
-			case "bazel":
-				defaultHeaders.layout = bazel
-			case "flat":
-				defaultHeaders.layout = flat
-			case "subdirs":
-				defaultHeaders.layout = subdirs
-			default:
-				defaultHeaders.layout = flat
-			}
-		case "header":
-			spltres := strings.Split(attr.Value, "=")
-			if spltres[len(spltres)-1] != "" {
-				defaultHeaders.emplace(attr.Key, attr.Value)
-			} else {
-				LOG("HTTP header error")
-			}
-		case "url":
-			// TODO
-		default:
-			LOG("HTTP attribute '%s' not known!", attr.Key)
-		}
-	}
-
-	if url.User != nil {
-		defaultHeaders.bearerToken = url.User.String()
-	}
-
-	httpclient := http.Client{Timeout: defaultHeaders.connectionTimeout}
-	return &HttpStorageBackend{url: *url, client: &httpclient,
-		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
 }
 
 // Remove deletes the specified key from the HTTP storage backend.

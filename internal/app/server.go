@@ -134,8 +134,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	socketInterface := CreateSocketHandler(&conn)
-	backendInterface, err := CreateBackend(s.backendType)
+	socketInterface := NewSocketHandler(&conn)
+	backendInterface, err := NewBackendHandler(s.backendType)
 	tlv_parser := tlv.NewParser()
 
 	if err != nil {

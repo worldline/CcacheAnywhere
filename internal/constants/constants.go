@@ -67,3 +67,5 @@ var (
 	ErrInvalidMessage = errors.New("invalid message format")
 	ErrFieldTooLarge  = errors.New("field too large")
 )
+
+var DEBUG_ENABLED = false

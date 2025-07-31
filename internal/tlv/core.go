@@ -18,15 +18,6 @@ type TLVField struct {
 	Data   []byte // Slice pointing to original buffer
 }
 
-func (fld TLVField) String() string {
-	num := min(len(fld.Data), 20)
-	send := max(len(fld.Data)-20, 20)
-	if send > len(fld.Data) {
-		return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v}", fld.Tag, fld.Length, fld.Data[:num])
-	}
-	return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v..%v}", fld.Tag, fld.Length, fld.Data[:num], fld.Data[send:])
-}
-
 type Message struct {
 	Type   uint16
 	Fields []TLVField
@@ -34,6 +25,15 @@ type Message struct {
 
 type Parser struct {
 	fields []TLVField // Reused slice to avoid allocations
+}
+
+func (fld *TLVField) String() string {
+	num := min(len(fld.Data), 20)
+	send := max(len(fld.Data)-20, 20)
+	if send > len(fld.Data) {
+		return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v}", fld.Tag, fld.Length, fld.Data[:num])
+	}
+	return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v..%v}", fld.Tag, fld.Length, fld.Data[:num], fld.Data[send:])
 }
 
 type Serializer struct {

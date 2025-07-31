@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"ccache-backend-client/internal/app"
+	"ccache-backend-client/internal/constants"
 
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
@@ -43,16 +44,17 @@ func parseArgs() (err error) {
 		storage.BackendAttributes = append(storage.BackendAttributes, storage.Attribute{Key: key, Value: value})
 	}
 
-	flag.BoolVar(&DEBUG_ENABLED, "debug", false, "Debug flag")
+	flag.BoolVar(&constants.DEBUG_ENABLED, "debug", false, "Debug flag")
 	flag.Parse()
 
 	if tlv.SOCKET_PATH == "" || BACKEND_TYPE == "" || err != nil {
+		// Input is incorrect -> log to stdout!
 		log.Println("Make sure you are passing the environment variables!")
 		return fmt.Errorf("incorrect usage: %v", err)
 	}
 
 	// create log file if debug flag is set
-	if DEBUG_ENABLED {
+	if constants.DEBUG_ENABLED {
 		err := OpenLogFile()
 		if err != nil {
 			return err
@@ -69,12 +71,12 @@ func main() {
 
 	execDir, err := os.Executable()
 	if err != nil {
-		TERM(err)
+		log.Fatal(err)
 	}
 
 	err = os.Chdir(filepath.Dir(execDir))
 	if err != nil {
-		TERM(err)
+		log.Fatal(err)
 	}
 	LOG("Start server!")
 	StartServer()

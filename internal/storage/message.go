@@ -28,6 +28,31 @@ type TestMessage struct {
 	response Response
 }
 
+type SetupMessage struct {
+	mid      string
+	response Response
+}
+
+type GetMessage struct {
+	key      []byte
+	mid      string
+	response Response
+}
+
+type PutMessage struct {
+	key           []byte
+	value         []byte
+	onlyIfMissing bool
+	mid           string
+	response      Response
+}
+
+type RmMessage struct {
+	key      []byte
+	mid      string
+	response Response
+}
+
 func (m *TestMessage) RespType() uint16 {
 	return 0
 }
@@ -49,11 +74,6 @@ func (m *TestMessage) Write(b Backend) error {
 
 func (m *TestMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
-}
-
-type SetupMessage struct {
-	mid      string
-	response Response
 }
 
 func (m *SetupMessage) RespType() uint16 {
@@ -99,12 +119,6 @@ func (m *SetupMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
 }
 
-type GetMessage struct {
-	key      []byte
-	mid      string
-	response Response
-}
-
 func (m *GetMessage) RespType() uint16 {
 	return constants.MsgTypeGetResponse
 }
@@ -135,14 +149,6 @@ func (m *GetMessage) Read() ([]byte, StatusCode) {
 	}
 
 	return m.response.message, m.response.status
-}
-
-type PutMessage struct {
-	key           []byte
-	value         []byte
-	onlyIfMissing bool
-	mid           string
-	response      Response
 }
 
 func (m *PutMessage) RespType() uint16 {
@@ -179,12 +185,6 @@ func (m *PutMessage) Write(b Backend) (err error) {
 
 func (m *PutMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
-}
-
-type RmMessage struct {
-	key      []byte
-	mid      string
-	response Response
 }
 
 func (m *RmMessage) RespType() uint16 {
