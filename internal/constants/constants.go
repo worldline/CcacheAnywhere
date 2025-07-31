@@ -7,7 +7,7 @@ import (
 
 const (
 	INACTIVITY_TIMEOUT   = 300 * time.Second
-	MAX_PARALLEL_CLIENTS = 32
+	MAX_PARALLEL_CLIENTS = 128
 )
 
 // Message types
@@ -57,7 +57,7 @@ const (
 	Length1ByteMax  uint8  = 252 // 0xFC
 	Length3ByteFlag uint8  = 253 // 0xFD
 	Length5ByteFlag uint8  = 254 // 0xFE
-	MaxFieldSize    uint32 = 0xFFFFFFFF
+	MaxFieldSize    uint32 = 0xFFFFF
 )
 
 // Errors

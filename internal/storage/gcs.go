@@ -233,7 +233,7 @@ func (h *GCSStorageBackend) Put(key []byte, data []byte, onlyIfMissing bool) (bo
 	if err != nil {
 		return false, &BackendFailure{
 			Message: fmt.Sprintf("Local error %s: %v", objectName, err.Error()),
-			Code:    404,
+			Code:    500,
 		}
 	}
 	ctx := context.Background()

@@ -160,7 +160,7 @@ func CreateHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBacke
 			case "subdirs":
 				defaultHeaders.layout = subdirs
 			default:
-				defaultHeaders.layout = subdirs
+				defaultHeaders.layout = flat
 			}
 		case "header":
 			spltres := strings.Split(attr.Value, "=")

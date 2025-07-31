@@ -42,12 +42,12 @@ func parseUrl(input string) (*url.URL, []storage.Attribute) {
 
 func CreateBackend(url string) (*BackendHandler, error) {
 	prefix := strings.Split(url, ":")[0]
-	furl, attributes := parseUrl(url)
+	furl, _ := parseUrl(url)
 	switch prefix {
 	case "http":
-		return &BackendHandler{node: storage.CreateHTTPBackend(furl, attributes)}, nil
+		return &BackendHandler{node: storage.CreateHTTPBackend(furl, storage.BackendAttributes)}, nil
 	case "gs":
-		return &BackendHandler{node: storage.CreateGCSBackend(furl, attributes)}, nil
+		return &BackendHandler{node: storage.CreateGCSBackend(furl, storage.BackendAttributes)}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}
@@ -81,6 +81,7 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 	}
 
 	h.node.Write(h.serializer.Bytes())
+	h.serializer.Reset()
 }
 
 type BackendHandler struct {
