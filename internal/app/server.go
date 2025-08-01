@@ -29,9 +29,28 @@ type SocketServer struct {
 	wg              sync.WaitGroup
 }
 
+// NewServer creates and initializes a new Unix domain socket server.
+//
+// It handles existing socket files at the specified path to avoid conflicts
+// and sets up the server with the given configuration.
+//
+// Behavior:
+//  1. Checks if a socket file already exists at `socketPath`.
+//     - If it exists, attempts to connect to it to determine if it's active.
+//     - If a connection is established, indicates that the socket is already in use and returns an error.
+//     - If connection fails, assumes the socket file is stale and removes it.
+//  2. Creates a new Unix domain socket listener at `socketPath`.
+//  3. Initializes and returns a `SocketServer` struct with the provided parameters,
+//     including an inactivity timer set to a predefined timeout.
+//
+// Note:
+//   - If the function cannot create or bind to the socket (e.g., due to permissions or filesystem issues),
+//     it returns an error.
 func NewServer(socketPath string, bufferSize int, btype string) (*SocketServer, error) {
 	if _, err := os.Stat(socketPath); err == nil {
 		WARN("Socket file exists at %v", socketPath)
+
+		//  determine if socket is active
 		conn, err := net.Dial("unix", socketPath)
 		if err == nil {
 			conn.Close()
@@ -53,6 +72,7 @@ func NewServer(socketPath string, bufferSize int, btype string) (*SocketServer, 
 	}, nil
 }
 
+// Runs the main server loop and handles connections
 func (s *SocketServer) Start() {
 	defer s.listener.Close()
 
@@ -128,6 +148,13 @@ func (s *SocketServer) Start() {
 	}
 }
 
+// Handles each incoming connection
+//
+// Also takes care of propogating the data to the TLV protocol Parser
+// and prepares the message for transfer to the backend.
+//
+// Once the backend sends a response it is serialized and send over
+// the socket.
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	fd, err := conn.(*net.UnixConn).File()
@@ -180,6 +207,9 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	}
 }
 
+// monitorInactivity runs an internal loop to monitor inactivity based on a timer.
+// It listens for either a shutdown signal via the context or a timeout indicating inactivity.
+// If inactivity timeout occurs, it cancels the context, logs the event, and closes the listener.
 func (s *SocketServer) monitorInactivity(ctx context.Context, cancel context.CancelFunc) {
 	for {
 		select {
@@ -195,16 +225,21 @@ func (s *SocketServer) monitorInactivity(ctx context.Context, cancel context.Can
 	}
 }
 
+// resetInactivityTimer safely resets the inactivity timer.
+// It stops the current timer (if running), drains the channel if needed,
+// and then restarts the timer with the configured timeout.
 func (s *SocketServer) resetInactivityTimer() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.inactivityTimer.Stop() {
+		// drain the channel to prevent leaks.
 		<-s.inactivityTimer.C
 	}
 	s.inactivityTimer.Reset(constants.INACTIVITY_TIMEOUT)
 }
 
+// Cleanup removes the socket file from the filesystem.
 func (s *SocketServer) Cleanup() {
 	if err := os.Remove(s.socketPath); err != nil && !os.IsNotExist(err) {
 		LOG("Error removing socket file: %v", err.Error())

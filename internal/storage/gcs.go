@@ -71,6 +71,8 @@ func setMetadata(bucket, object string) error {
 	return nil
 }
 
+// getCredentialsOption returns a Google Cloud client option configured with the appropriate credentials file.
+// It provides flexibility by using a user-specified credentials file if set, or defaults based on the operating system.
 func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) {
 	if attrs.CredentialsFile != "" {
 		return option.WithCredentialsFile(attrs.CredentialsFile), nil

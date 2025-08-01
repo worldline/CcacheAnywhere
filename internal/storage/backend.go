@@ -39,6 +39,14 @@ type Backend interface {
 
 var BackendAttributes []Attribute
 
+// ParseAttributes reads a JSON configuration file and extracts attributes into a slice.
+//
+// It loads the specified file from the "configs" directory, parses its JSON content,
+// and appends the key-value pairs as `Attribute` entries into the global `BackendAttributes` slice.
+//
+// Note:
+//   - This function modifies the global variable `BackendAttributes` by appending new entries.
+//   - Ensure that concurrent calls are synchronized if necessary, as `BackendAttributes` is shared.
 func ParseAttributes(filename string) ([]Attribute, error) {
 	filePath := filepath.Join("configs", filename)
 
@@ -59,6 +67,7 @@ func ParseAttributes(filename string) ([]Attribute, error) {
 	return BackendAttributes, nil
 }
 
+// Error returns a string formatting of the backend failure.
 func (e *BackendFailure) Error() string {
 	return fmt.Sprintf("Failure: %s with status code %d", e.Message, e.Code)
 }

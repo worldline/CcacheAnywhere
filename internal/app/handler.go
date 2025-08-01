@@ -26,10 +26,20 @@ type BackendHandler struct {
 	node storage.Backend
 }
 
+// NewSocketHandler creates a new SocketHandler instance from a given network connection.
+//
+// Notes:
+//   - The connection node is dereferenced and stored directly within the SocketHandler.
+//   - Uses a serializer initialized with a maximum field size defined in constants to serialize messages.
 func NewSocketHandler(conn *net.Conn) SocketHandler {
 	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(int(constants.MaxFieldSize))}
 }
 
+// The URL's prefix (scheme) determines which backend implementation to instantiate.
+//
+// Supported schemes:
+//   - "http": Creates an HTTP backend.
+//   - "gs": Creates a Google Cloud Storage (GCS) backend.
 func NewBackendHandler(url string) (*BackendHandler, error) {
 	prefix := strings.Split(url, ":")[0]
 	furl, _ := parseUrl(url)
@@ -67,7 +77,7 @@ func parseUrl(input string) (*url.URL, []storage.Attribute) {
 	return parsedUrl, attributes
 }
 
-// deparse message and send it over network
+// Serialize backend's response and send it over socket
 func (h *SocketHandler) Handle(msg storage.Message) {
 	data, status := msg.Read()
 	msgType := msg.RespType()
@@ -89,6 +99,7 @@ func (h *SocketHandler) Handle(msg storage.Message) {
 	h.serializer.Reset()
 }
 
+// Propagate message receoved to the backend server
 func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.Write(h.node)
 
