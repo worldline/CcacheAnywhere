@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	urlib "net/url"
+	"runtime"
 	"strings"
 	"time"
 
@@ -77,7 +78,10 @@ func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) 
 	if attrs.CredentialsFile != "" {
 		return option.WithCredentialsFile(attrs.CredentialsFile), nil
 	}
-	return option.WithCredentialsFile("/home/rocky/.config/gcloud/application_default_credentials.json"), nil
+	if runtime.GOOS == "windows" {
+		return option.WithCredentialsFile("%APPDATA%\\gcloud\application_default_credentials.json"), nil
+	}
+	return option.WithCredentialsFile("$HOME/.config/gcloud/application_default_credentials.json"), nil
 }
 
 func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {

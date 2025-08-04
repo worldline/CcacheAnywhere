@@ -98,11 +98,10 @@ func getUrl(u *urlib.URL) string {
 	if u.Host == "" {
 		panic("user provided url is empty!")
 	}
-	var port string
-	if u.Port() != "" {
-		port = ":" + u.Port()
-	}
-	return fmt.Sprintf("%s://%s%s%s", u.Scheme, u.Hostname(), port, u.Path)
+	u2 := *u
+	u2.RawQuery = ""
+	u2.Fragment = ""
+	return u2.String()
 }
 
 func (h *HttpStorageBackend) getEntryPath(key []byte) string {
