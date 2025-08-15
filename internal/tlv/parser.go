@@ -8,7 +8,7 @@ import (
 
 func NewParser() *Parser {
 	return &Parser{
-		fields: make([]TLVField, 0, 16), // Pre-allocate for common case
+		fields: make([]TLVField, 0, 4), // Pre-allocate for common case
 	}
 }
 

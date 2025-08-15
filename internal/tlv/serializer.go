@@ -8,7 +8,7 @@ import (
 // creates a new TLV-protocol serializer with the given capacity
 func NewSerializer(capacity int) *Serializer {
 	return &Serializer{
-		buffer: make([]byte, capacity),
+		buffer: make([]byte, 1024, capacity),
 		pos:    0,
 	}
 }

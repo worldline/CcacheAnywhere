@@ -19,7 +19,7 @@ type Handler interface {
 
 type SocketHandler struct {
 	node       net.Conn
-	serializer *tlv.Serializer
+	serializer tlv.Serializer
 }
 
 type BackendHandler struct {
@@ -32,7 +32,7 @@ type BackendHandler struct {
 //   - The connection node is dereferenced and stored directly within the SocketHandler.
 //   - Uses a serializer initialized with a maximum field size defined in constants to serialize messages.
 func NewSocketHandler(conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn, serializer: tlv.NewSerializer(int(constants.MaxFieldSize))}
+	return SocketHandler{node: *conn, serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}
 }
 
 // The URL's prefix (scheme) determines which backend implementation to instantiate.

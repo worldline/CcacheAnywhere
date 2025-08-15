@@ -187,8 +187,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 			}
 			LOG("Received %v", packet.Fields)
 
-			receivedMessage, err := storage.Assemble(*packet)
-			persistentBuffer = persistentBuffer[:0]
+			receivedMessage, err := storage.Assemble(packet)
 
 			if err != nil {
 				LOG("Connection closing! %v", err)
@@ -201,6 +200,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 				LOG("Server: Socket send")
 				socketInterface.Handle(receivedMessage)
 			}
+			persistentBuffer = persistentBuffer[:0]
 		}
 
 		s.resetInactivityTimer()

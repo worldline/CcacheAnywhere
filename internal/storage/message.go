@@ -160,8 +160,13 @@ func (m *PutMessage) Create(body *tlv.Message) error {
 	m.key = body.FindField(constants.TypeKey).Data
 	m.value = body.FindField(constants.TypeValue).Data
 
-	flags := body.FindField(constants.TypeFlags).Data[0]
-	m.onlyIfMissing = flags&constants.OverwriteFlag == 0x0
+	flagsField := body.FindField(constants.TypeFlags)
+	if flagsField != nil {
+		m.onlyIfMissing = flagsField.Data[0]&constants.OverwriteFlag == 0x0
+	} else {
+		m.onlyIfMissing = false
+	}
+
 	return nil
 }
 
@@ -219,7 +224,7 @@ func (m *RmMessage) Read() ([]byte, StatusCode) {
 	return m.response.message, m.response.status
 }
 
-func Assemble(p tlv.Message) (Message, error) {
+func Assemble(p *tlv.Message) (Message, error) {
 	var resultMessage Message
 	switch p.Type { // TODO create the messages
 	case constants.MsgTypeGet:
@@ -234,6 +239,6 @@ func Assemble(p tlv.Message) (Message, error) {
 		return nil, fmt.Errorf("message type is not protocol coherent")
 	}
 
-	resultMessage.Create(&p)
+	resultMessage.Create(p)
 	return resultMessage, nil
 }
