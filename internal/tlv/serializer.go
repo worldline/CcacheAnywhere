@@ -32,6 +32,31 @@ func (s *Serializer) BeginMessage(version uint16, msgType uint16) error {
 	return nil
 }
 
+func (s *Serializer) ensureCapacity(minCapacity int) {
+	if minCapacity <= cap(s.buffer) {
+		// Extend length if needed
+		if minCapacity > len(s.buffer) {
+			s.buffer = s.buffer[:minCapacity]
+		}
+		return
+	}
+
+	// Reallocate with growth strategy
+	newCap := cap(s.buffer) * 2
+	if newCap < minCapacity {
+		newCap = minCapacity
+	}
+
+	newBuffer := make([]byte, len(s.buffer), newCap)
+	copy(newBuffer, s.buffer)
+	s.buffer = newBuffer
+
+	// Extend to needed length
+	if minCapacity > len(s.buffer) {
+		s.buffer = s.buffer[:minCapacity]
+	}
+}
+
 // AddField adds a field with raw byte data
 func (s *Serializer) AddField(fieldTag uint8, data []byte) error {
 	return s.addFieldInternal(fieldTag, data)
@@ -77,9 +102,8 @@ func (s *Serializer) addFieldInternal(fieldTag uint8, data []byte) error {
 	lengthEncSize := lengthEncodingSize(dataLen)
 	needed := 1 + lengthEncSize + len(data)
 
-	if s.pos+needed > len(s.buffer) {
-		return constants.ErrFieldTooLarge
-	}
+	// Ensure sufficient space
+	s.ensureCapacity(s.pos + needed)
 
 	// Write field type (1 byte, little endian)
 	s.buffer[s.pos] = fieldTag
