@@ -5,37 +5,31 @@ import (
 	"fmt"
 
 	"ccache-backend-client/internal/constants"
-	//lint:ignore ST1001 do want pretty LOG function
-	. "ccache-backend-client/internal/logger"
 	"ccache-backend-client/internal/tlv"
 )
 
 type Response struct {
-	message []byte
-	status  StatusCode
+	status StatusCode
 }
 
 // Message interface defines the methods for messages
 type Message interface {
-	Write(b Backend) error
-	Read() ([]byte, StatusCode)
+	Write(b Backend, s *tlv.Serializer) error
+	Read() StatusCode
 	Create(*tlv.Message) error
 	RespType() uint16
 }
 
-type TestMessage struct {
-	mid      string
-	response Response
-}
-
 type SetupMessage struct {
 	mid      string
+	fields   []byte
 	response Response
 }
 
 type GetMessage struct {
 	key      []byte
 	mid      string
+	Ser      tlv.Serializer
 	response Response
 }
 
@@ -53,29 +47,6 @@ type RmMessage struct {
 	response Response
 }
 
-func (m *TestMessage) RespType() uint16 {
-	return 0
-}
-
-func (m *TestMessage) Create(body *tlv.Message) error {
-	m.mid = "Test message"
-	return nil
-}
-
-func (m *TestMessage) Write(b Backend) error {
-	if b != nil {
-		LOG("Backend running successfully!")
-	}
-
-	m.response.message = []byte{0, 1, 2, 3, 4, 5, 0, 0, 0}
-	m.response.status = SUCCESS
-	return nil
-}
-
-func (m *TestMessage) Read() ([]byte, StatusCode) {
-	return m.response.message, m.response.status
-}
-
 func (m *SetupMessage) RespType() uint16 {
 	return constants.MsgTypeSetupReponse
 }
@@ -87,36 +58,43 @@ func (m *SetupMessage) Create(body *tlv.Message) error {
 	if field != nil {
 		value := binary.LittleEndian.Uint16(field.Data)
 		if value != 0x01 {
-			m.response.message = append(m.response.message, 0x01)
+			m.fields = append(m.fields, uint8(constants.SetupTypeVersion))
+			m.fields = append(m.fields, 0x01)
 			m.response.status = REDIRECT
 		}
 	}
 	// SetupTypeConnectTimeout configure the local timeout
 	field = body.FindField(uint8(constants.SetupTypeConnectTimeout))
 	if field != nil {
-		m.response.message = append(m.response.message, 0x01)
+		m.fields = append(m.fields, uint8(constants.SetupTypeConnectTimeout))
+		m.fields = append(m.fields, 0x01)
 		m.response.status = REDIRECT
 	}
 	// SetupTypeOperationTimeout configure this too
 	field = body.FindField(uint8(constants.SetupTypeOperationTimeout))
 	if field != nil {
-		m.response.message = append(m.response.message, 0x01)
+		m.fields = append(m.fields, uint8(constants.SetupTypeOperationTimeout))
+		m.fields = append(m.fields, 0x01)
 		m.response.status = REDIRECT
 	}
 	m.mid = "Setup message"
 	return nil
 }
 
-func (m *SetupMessage) Write(b Backend) error {
+func (m *SetupMessage) Write(b Backend, s *tlv.Serializer) error {
 	if m.response.status == REDIRECT {
+		for i := 0; i < len(m.fields); i += 2 {
+			s.AddUint8Field(m.fields[i], m.fields[i+1])
+		}
+		m.response.status = LOCAL_ERR
 		return fmt.Errorf("request change in configuration")
 	}
 	m.response.status = SUCCESS
 	return nil
 }
 
-func (m *SetupMessage) Read() ([]byte, StatusCode) {
-	return m.response.message, m.response.status
+func (m *SetupMessage) Read() StatusCode {
+	return m.response.status
 }
 
 func (m *GetMessage) RespType() uint16 {
@@ -129,8 +107,8 @@ func (m *GetMessage) Create(body *tlv.Message) error {
 	return nil
 }
 
-func (m *GetMessage) Write(b Backend) (err error) {
-	_resp, err := b.Get(m.key)
+func (m *GetMessage) Write(b Backend, s *tlv.Serializer) (err error) {
+	err = b.Get(m.key, s)
 	if err != nil {
 		if bf, ok := err.(*BackendFailure); ok {
 			m.response.status = b.ResolveProtocolCode(bf.Code)
@@ -139,16 +117,11 @@ func (m *GetMessage) Write(b Backend) (err error) {
 		m.response.status = SUCCESS
 	}
 
-	m.response.message = _resp
 	return err
 }
 
-func (m *GetMessage) Read() ([]byte, StatusCode) {
-	if len(m.response.message) == 0 {
-		m.response.message = []byte("No data found!")
-	}
-
-	return m.response.message, m.response.status
+func (m *GetMessage) Read() StatusCode {
+	return m.response.status
 }
 
 func (m *PutMessage) RespType() uint16 {
@@ -170,7 +143,7 @@ func (m *PutMessage) Create(body *tlv.Message) error {
 	return nil
 }
 
-func (m *PutMessage) Write(b Backend) (err error) {
+func (m *PutMessage) Write(b Backend, s *tlv.Serializer) (err error) {
 	_resp, err := b.Put(m.key, m.value, m.onlyIfMissing)
 	if err != nil {
 		if bf, ok := err.(*BackendFailure); ok {
@@ -180,16 +153,12 @@ func (m *PutMessage) Write(b Backend) (err error) {
 		m.response.status = SUCCESS
 	}
 
-	if _resp {
-		m.response.message = []byte{0x01}
-	} else {
-		m.response.message = []byte{0x00}
-	}
+	s.AddBoolField(constants.TypeValue, _resp)
 	return err
 }
 
-func (m *PutMessage) Read() ([]byte, StatusCode) {
-	return m.response.message, m.response.status
+func (m *PutMessage) Read() StatusCode {
+	return m.response.status
 }
 
 func (m *RmMessage) RespType() uint16 {
@@ -202,7 +171,7 @@ func (m *RmMessage) Create(body *tlv.Message) error {
 	return nil
 }
 
-func (m *RmMessage) Write(b Backend) (err error) {
+func (m *RmMessage) Write(b Backend, s *tlv.Serializer) (err error) {
 	_resp, err := b.Remove(m.key)
 	if err != nil {
 		if bf, ok := err.(*BackendFailure); ok {
@@ -212,16 +181,12 @@ func (m *RmMessage) Write(b Backend) (err error) {
 		m.response.status = SUCCESS
 	}
 
-	if _resp {
-		m.response.message = []byte{0x01}
-	} else {
-		m.response.message = []byte{0x00}
-	}
+	s.AddBoolField(constants.TypeValue, _resp)
 	return err
 }
 
-func (m *RmMessage) Read() ([]byte, StatusCode) {
-	return m.response.message, m.response.status
+func (m *RmMessage) Read() StatusCode {
+	return m.response.status
 }
 
 func Assemble(p *tlv.Message) (Message, error) {
