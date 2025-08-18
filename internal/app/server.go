@@ -161,7 +161,6 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	socketInterface := NewSocketHandler(&conn)
 	backendInterface, err := NewBackendHandler(s.backendType)
 	tlv_parser := tlv.NewParser()
 
@@ -198,8 +197,9 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 				LOG("Server: Handle packet")
 				backendInterface.Handle(receivedMessage)
 				LOG("Server: Socket send")
-				socketInterface.Handle(receivedMessage)
+				conn.Write(backendInterface.serializer.Bytes())
 			}
+			backendInterface.serializer.Reset()
 			persistentBuffer = persistentBuffer[:0]
 		}
 

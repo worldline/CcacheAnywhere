@@ -1,12 +1,11 @@
 package app
 
 import (
+	"ccache-backend-client/internal/constants"
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 
-	"ccache-backend-client/internal/constants"
 	//lint:ignore ST1001 do want pretty LOG function
 	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
@@ -17,22 +16,9 @@ type Handler interface {
 	Handle(storage.Message)
 }
 
-type SocketHandler struct {
-	node       net.Conn
-	serializer tlv.Serializer
-}
-
 type BackendHandler struct {
-	node storage.Backend
-}
-
-// NewSocketHandler creates a new SocketHandler instance from a given network connection.
-//
-// Notes:
-//   - The connection node is dereferenced and stored directly within the SocketHandler.
-//   - Uses a serializer initialized with a maximum field size defined in constants to serialize messages.
-func NewSocketHandler(conn *net.Conn) SocketHandler {
-	return SocketHandler{node: *conn, serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}
+	node       storage.Backend
+	serializer tlv.Serializer
 }
 
 // The URL's prefix (scheme) determines which backend implementation to instantiate.
@@ -45,9 +31,13 @@ func NewBackendHandler(url string) (*BackendHandler, error) {
 	furl, _ := parseUrl(url)
 	switch prefix {
 	case "http":
-		return &BackendHandler{node: storage.NewHTTPBackend(furl, storage.BackendAttributes)}, nil
+		return &BackendHandler{
+			node:       storage.NewHTTPBackend(furl, storage.BackendAttributes),
+			serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}, nil
 	case "gs":
-		return &BackendHandler{node: storage.NewGCSBackend(furl, storage.BackendAttributes)}, nil
+		return &BackendHandler{
+			node:       storage.NewGCSBackend(furl, storage.BackendAttributes),
+			serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}
@@ -77,31 +67,12 @@ func parseUrl(input string) (*url.URL, []storage.Attribute) {
 	return parsedUrl, attributes
 }
 
-// Serialize backend's response and send it over socket
-func (h *SocketHandler) Handle(msg storage.Message) {
-	data, status := msg.Read()
-	msgType := msg.RespType()
-
-	h.serializer.BeginMessage(uint16(0x01), uint16(msgType))
-	h.serializer.AddUint8Field(constants.TypeStatusCode, uint8(status))
-	switch msgType {
-	case constants.MsgTypeGetResponse:
-		h.serializer.AddField(constants.TypeValue, data)
-	case constants.MsgTypePutResponse:
-		// do we want to say we put?
-	case constants.MsgTypeDeleteResponse:
-		// do we want to say we deleted?
-	case constants.MsgTypeSetupReponse:
-		// if there is something to configure send it
-	}
-
-	h.node.Write(h.serializer.Bytes())
-	h.serializer.Reset()
-}
-
 // Propagate message receoved to the backend server
 func (h *BackendHandler) Handle(msg storage.Message) {
-	err := msg.Write(h.node)
+	h.serializer.BeginMessage(uint16(0x01), msg.RespType())
+	err := msg.Write(h.node, &h.serializer)
+	status := msg.Read()
+	h.serializer.AddUint8Field(constants.TypeStatusCode, uint8(status))
 
 	if err != nil {
 		LOG("Handling message failed for backend: %v", err.Error())
