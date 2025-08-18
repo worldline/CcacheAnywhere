@@ -3,6 +3,8 @@ package tlv
 import (
 	"ccache-backend-client/internal/constants"
 	"encoding/binary"
+	"fmt"
+	"io"
 )
 
 // creates a new TLV-protocol serializer with the given capacity
@@ -22,7 +24,7 @@ func (s *Serializer) Reset() {
 
 // BeginMessage starts a new message with the given type
 func (s *Serializer) BeginMessage(version uint16, msgType uint16) error {
-	if len(s.buffer) < 1 {
+	if len(s.buffer) < 4 {
 		return constants.ErrFieldTooLarge
 	}
 
@@ -127,4 +129,49 @@ func (s *Serializer) Bytes() []byte {
 // Len returns the current message length
 func (s *Serializer) Len() int {
 	return s.pos
+}
+
+// AddFieldFromReader adds a field by reading directly from an io.Reader
+// This avoids copying the data through an intermediate buffer
+func (s *Serializer) AddFieldFromReader(fieldTag uint8, reader io.Reader, contentLength int64) error {
+	if contentLength > 0 && contentLength <= int64(constants.MaxFieldSize) {
+		return s.addFieldFromReaderWithLength(fieldTag, reader, uint32(contentLength))
+	}
+
+	return constants.ErrFieldTooLarge
+}
+
+func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Reader, dataLen uint32) error {
+	if dataLen > constants.MaxFieldSize {
+		return constants.ErrFieldTooLarge
+	}
+
+	lengthEncSize := lengthEncodingSize(dataLen)
+	needed := 1 + lengthEncSize + int(dataLen)
+	s.ensureCapacity(s.pos + needed)
+
+	s.buffer[s.pos] = fieldTag
+	s.pos += 1
+
+	s.pos += encodeLength(s.buffer[s.pos:], dataLen)
+
+	// Read directly into buffer (zero-copy!)
+	totalRead := 0
+	for totalRead < int(dataLen) {
+		n, err := reader.Read(s.buffer[s.pos : s.pos+int(dataLen)-totalRead])
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+		s.pos += n
+		totalRead += n
+	}
+
+	if totalRead != int(dataLen) {
+		return fmt.Errorf("expected %d bytes, got %d", dataLen, totalRead)
+	}
+
+	return nil
 }
