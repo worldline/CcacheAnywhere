@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	urlib "net/url"
 	"runtime"
 	"strings"
 	"time"
 
+	"ccache-backend-client/internal/constants"
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
+	"ccache-backend-client/internal/tlv"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -162,10 +163,10 @@ func (h *GCSStorageBackend) ResolveProtocolCode(code int) StatusCode {
 	}
 }
 
-func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
+func (h *GCSStorageBackend) Get(key []byte, serializer *tlv.Serializer) error {
 	objectName, err := formatDigest(key)
 	if err != nil {
-		return []byte{}, &BackendFailure{
+		return &BackendFailure{
 			Message: fmt.Sprintf("Local error %s: %v", objectName, err.Error()),
 			Code:    404,
 		}
@@ -178,29 +179,21 @@ func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
 	reader, err := objHandle.NewReader(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
-			return []byte{}, &BackendFailure{
+			return &BackendFailure{
 				Message: fmt.Sprintf("Object %s not found in bucket %s", objectName, h.bucketName),
 				Code:    404,
 			}
 		}
-		return []byte{}, &BackendFailure{
+		return &BackendFailure{
 			Message: fmt.Sprintf("Failed to get object %s: %v", objectName, err),
 			Code:    500,
 		}
 	}
 	defer reader.Close()
 
-	body, err := io.ReadAll(reader)
-	if err != nil {
-		return []byte{}, &BackendFailure{
-			Message: fmt.Sprintf("Failed to read object %s: %v", objectName, err),
-			Code:    500,
-		}
-	}
-
 	// remember to update custom time
 	go setMetadata(h.bucketName, objectName)
-	return body, nil
+	return serializer.AddFieldFromReader(constants.TypeValue, reader, reader.Attrs.Size)
 }
 
 func (h *GCSStorageBackend) Remove(key []byte) (bool, error) {

@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"ccache-backend-client/internal/tlv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,7 +32,7 @@ type Attribute struct {
 }
 
 type Backend interface {
-	Get([]byte) ([]byte, error)
+	Get(key []byte, serializer *tlv.Serializer) error
 	Put([]byte, []byte, bool) (bool, error)
 	Remove([]byte) (bool, error)
 	ResolveProtocolCode(int) StatusCode
