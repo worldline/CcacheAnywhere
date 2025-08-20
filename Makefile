@@ -40,11 +40,6 @@ install:
 clean:
 	rm -rf $(BUILD_DIR)/$(BINARY_NAME)
 
-# Run tests
-.PHONY: test
-test:
-	go test ./...
-
 # Run the built binary
 .PHONY: run
 run: build
@@ -59,3 +54,28 @@ help:
 	@echo "  clean     Remove build artifacts"
 	@echo "  test      Run tests"
 	@echo "  run       Build and run the application"
+
+# Everthing around testing
+
+# Run all tests
+.PHONY: test
+test:
+	go test ./...
+
+.PHONY: test-unit test-integration test-bench test-coverage
+
+test-unit:
+	go test -v ./internal/...
+
+# Integrations only
+test-integration:
+	go test -v -tags=integration ./test/integration/...
+
+# Benchmarks
+test-bench:
+	go test -bench=. -benchmem ./internal/...
+
+# With coverage
+test-coverage:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
