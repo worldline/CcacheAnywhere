@@ -29,6 +29,13 @@ type SocketServer struct {
 	wg              sync.WaitGroup
 }
 
+var bufferPool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, 0, 4096)
+		return &buf
+	},
+}
+
 // NewServer creates and initializes a new Unix domain socket server.
 //
 // It handles existing socket files at the specified path to avoid conflicts
@@ -169,8 +176,13 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 		return
 	}
 
-	persistentBuffer := make([]byte, 0)
-	buf := make([]byte, 1024)
+	persistentBufPtr := bufferPool.Get().(*[]byte)
+	persistentBuffer := (*persistentBufPtr)[:0]
+	defer func() {
+		*persistentBufPtr = persistentBuffer[:0]
+		bufferPool.Put(persistentBufPtr)
+	}()
+	buf := make([]byte, tlv.FIXED_BUF_SIZE)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {

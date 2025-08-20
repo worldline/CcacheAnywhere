@@ -50,3 +50,47 @@ func BenchmarkEncodeLength(b *testing.B) {
 		encodeLength(buf, uint32(i%1000))
 	}
 }
+
+// Benchmark tests
+func BenchmarkParser_Parse(b *testing.B) {
+	parser := NewParser()
+
+	// Create test data with multiple fields
+	testFields := []testField{
+		{tag: 1, data: []byte("field one data")},
+		{tag: 2, data: []byte("field two data with more content")},
+		{tag: 3, data: make([]byte, LARGE_BUFFER)},
+	}
+
+	data := createTestTLVData(constants.MsgTypeGetResponse, testFields)
+
+	b.ResetTimer()
+	for range b.N {
+		_, err := parser.Parse(data)
+		if err != nil {
+			b.Fatalf("Parse failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkMessage_FindField(b *testing.B) {
+	parser := NewParser()
+
+	// Create message with many fields
+	var testFields []testField
+	for i := range 20 {
+		testFields = append(testFields, testField{
+			tag:  uint8(i),
+			data: []byte("field data"),
+		})
+	}
+
+	data := createTestTLVData(constants.MsgTypeGetResponse, testFields)
+	msg, _ := parser.Parse(data)
+
+	b.ResetTimer()
+	for range b.N {
+		// Find field in the middle
+		msg.FindField(10)
+	}
+}

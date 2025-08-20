@@ -57,6 +57,7 @@ const (
 	Length1ByteMax  uint8  = 252 // 0xFC
 	Length3ByteFlag uint8  = 253 // 0xFD
 	Length5ByteFlag uint8  = 254 // 0xFE
+	TLVHeaderSize   int    = 4
 	MaxFieldSize    uint32 = 0xFFFFF
 )
 

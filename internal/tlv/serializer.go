@@ -24,9 +24,7 @@ func (s *Serializer) Reset() {
 
 // BeginMessage starts a new message with the given type
 func (s *Serializer) BeginMessage(version uint16, msgType uint16) error {
-	if len(s.buffer) < 4 {
-		return constants.ErrFieldTooLarge
-	}
+	s.ensureCapacity(constants.TLVHeaderSize)
 
 	binary.LittleEndian.PutUint16(s.buffer, version)
 	binary.LittleEndian.PutUint16(s.buffer[2:], msgType)

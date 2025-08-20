@@ -15,7 +15,7 @@ func NewParser() *Parser {
 // Parse parses a TLV message from the given buffer
 // Uses zero-copy approach - returned fields reference original buffer
 func (p *Parser) Parse(data []byte) (*Message, error) {
-	if len(data) < 1 {
+	if len(data) < constants.TLVHeaderSize {
 		return nil, constants.ErrInvalidMessage
 	}
 
