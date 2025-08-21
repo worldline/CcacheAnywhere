@@ -6,9 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	urlib "net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"ccache-backend-client/internal/constants"
@@ -27,8 +29,8 @@ type HttpStorageBackend struct {
 type Layout int
 
 const (
-	bazel Layout = iota
-	flat
+	flat Layout = iota
+	bazel
 	subdirs
 )
 
@@ -39,6 +41,11 @@ type httpHeaders struct {
 	operationTimeout  time.Duration
 	layout            Layout
 }
+
+var (
+	httpBackend *HttpStorageBackend
+	once        sync.Once
+)
 
 func NewHttpHeaders() *httpHeaders {
 	return &httpHeaders{
@@ -85,13 +92,43 @@ func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend 
 		}
 	}
 
+	transport := &http.Transport{
+		// Connection pooling settings
+		MaxIdleConns:        100,              // Total idle connections across all hosts
+		MaxIdleConnsPerHost: 50,               // Idle connections per host
+		MaxConnsPerHost:     100,              // Max concurrent connections per host
+		IdleConnTimeout:     90 * time.Second, // How long to keep idle connections
+
+		// Keep-alive settings
+		DisableKeepAlives: false, // CRITICAL: Enable keep-alive
+
+		// TCP settings
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second, // Connection timeout
+			KeepAlive: 30 * time.Second, // TCP keep-alive
+		}).DialContext,
+
+		// HTTP/2 support
+		ForceAttemptHTTP2: true, // Use HTTP/2 if available
+
+		// Don't disable compression unless needed
+		DisableCompression: false,
+	}
+
 	if url.User != nil {
 		defaultHeaders.bearerToken = url.User.String()
 	}
 
-	httpclient := http.Client{Timeout: defaultHeaders.connectionTimeout}
+	httpclient := http.Client{Transport: transport, Timeout: defaultHeaders.connectionTimeout}
 	return &HttpStorageBackend{url: *url, client: &httpclient,
 		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
+}
+
+func GetHttpBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
+	once.Do(func() {
+		httpBackend = NewHTTPBackend(url, attributes)
+	})
+	return httpBackend
 }
 
 // URL format: http://HOST[:PORT][/PATH]

@@ -32,7 +32,7 @@ func NewBackendHandler(url string) (*BackendHandler, error) {
 	switch prefix {
 	case "http":
 		return &BackendHandler{
-			node:       storage.NewHTTPBackend(furl, storage.BackendAttributes),
+			node:       storage.GetHttpBackend(furl, storage.BackendAttributes),
 			serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}, nil
 	case "gs":
 		return &BackendHandler{
