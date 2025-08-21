@@ -25,8 +25,8 @@ const (
 // Field types
 const (
 	SetupTypeVersion          uint16 = 0x01
-	SetupTypeConnectTimeout   uint16 = 0x02
-	SetupTypeOperationTimeout uint16 = 0x03
+	SetupTypeOperationTimeout uint16 = 0x02
+	SetupTypeBufferSize       uint16 = 0x03
 )
 
 const (

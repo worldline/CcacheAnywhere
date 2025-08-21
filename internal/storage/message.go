@@ -64,9 +64,9 @@ func (m *SetupMessage) Create(body *tlv.Message) error {
 		}
 	}
 	// SetupTypeConnectTimeout configure the local timeout
-	field = body.FindField(uint8(constants.SetupTypeConnectTimeout))
+	field = body.FindField(uint8(constants.SetupTypeBufferSize))
 	if field != nil {
-		m.fields = append(m.fields, uint8(constants.SetupTypeConnectTimeout))
+		m.fields = append(m.fields, uint8(constants.SetupTypeBufferSize))
 		m.fields = append(m.fields, 0x01)
 		m.response.status = REDIRECT
 	}
