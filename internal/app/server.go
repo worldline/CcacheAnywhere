@@ -169,6 +169,7 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 		return
 	}
 	backendInterface, err := NewBackendHandler(s.backendType)
+	defer tlv.PutSerializer(&backendInterface.serializer)
 	tlv_parser := tlv.NewParser()
 
 	if err != nil {

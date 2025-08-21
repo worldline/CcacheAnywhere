@@ -33,11 +33,11 @@ func NewBackendHandler(url string) (*BackendHandler, error) {
 	case "http":
 		return &BackendHandler{
 			node:       storage.GetHttpBackend(furl, storage.BackendAttributes),
-			serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}, nil
+			serializer: *tlv.GetSerializer()}, nil
 	case "gs":
 		return &BackendHandler{
 			node:       storage.NewGCSBackend(furl, storage.BackendAttributes),
-			serializer: *tlv.NewSerializer(int(constants.MaxFieldSize))}, nil
+			serializer: *tlv.GetSerializer()}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}

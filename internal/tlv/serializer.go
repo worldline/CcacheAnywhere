@@ -5,7 +5,23 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 )
+
+var serializerPool = sync.Pool{
+	New: func() any {
+		return NewSerializer(int(constants.MaxFieldSize))
+	},
+}
+
+func GetSerializer() *Serializer {
+	return serializerPool.Get().(*Serializer)
+}
+
+func PutSerializer(s *Serializer) {
+	s.Reset()
+	serializerPool.Put(s)
+}
 
 // creates a new TLV-protocol serializer with the given capacity
 func NewSerializer(capacity int) *Serializer {
