@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	INACTIVITY_TIMEOUT   = 300 * time.Second
+	INACTIVITY_TIMEOUT   = 60 * time.Second
 	MAX_PARALLEL_CLIENTS = 128
 )
 
@@ -24,9 +24,9 @@ const (
 
 // Field types
 const (
-	SetupTypeVersion          uint16 = 0x01
-	SetupTypeOperationTimeout uint16 = 0x02
-	SetupTypeBufferSize       uint16 = 0x03
+	SetupTagVersion          uint16 = 0x01
+	SetupTagOperationTimeout uint16 = 0x02
+	SetupTagBufferSize       uint16 = 0x03
 )
 
 const (

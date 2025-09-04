@@ -54,26 +54,26 @@ func (m *SetupMessage) RespType() uint16 {
 func (m *SetupMessage) Create(body *tlv.Message) error {
 	// Parse them
 	// SetupTypeVersion check if we can do this
-	field := body.FindField(uint8(constants.SetupTypeVersion))
-	if field != nil {
+	field := body.FindField(uint8(constants.SetupTagVersion))
+	if field != nil && false {
 		value := binary.LittleEndian.Uint16(field.Data)
 		if value != 0x01 {
-			m.fields = append(m.fields, uint8(constants.SetupTypeVersion))
+			m.fields = append(m.fields, uint8(constants.SetupTagVersion))
 			m.fields = append(m.fields, 0x01)
 			m.response.status = REDIRECT
 		}
 	}
 	// SetupTypeConnectTimeout configure the local timeout
-	field = body.FindField(uint8(constants.SetupTypeBufferSize))
-	if field != nil {
-		m.fields = append(m.fields, uint8(constants.SetupTypeBufferSize))
+	field = body.FindField(uint8(constants.SetupTagBufferSize))
+	if field != nil && false {
+		m.fields = append(m.fields, uint8(constants.SetupTagBufferSize))
 		m.fields = append(m.fields, 0x01)
 		m.response.status = REDIRECT
 	}
 	// SetupTypeOperationTimeout configure this too
-	field = body.FindField(uint8(constants.SetupTypeOperationTimeout))
-	if field != nil {
-		m.fields = append(m.fields, uint8(constants.SetupTypeOperationTimeout))
+	field = body.FindField(uint8(constants.SetupTagOperationTimeout))
+	if field != nil && false {
+		m.fields = append(m.fields, uint8(constants.SetupTagOperationTimeout))
 		m.fields = append(m.fields, 0x01)
 		m.response.status = REDIRECT
 	}

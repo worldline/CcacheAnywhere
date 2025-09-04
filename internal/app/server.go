@@ -164,10 +164,12 @@ func (s *SocketServer) Start() {
 // the socket.
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
+
 	fd, err := conn.(*net.UnixConn).File()
 	if err != nil {
 		return
 	}
+
 	backendInterface, err := NewBackendHandler(s.backendType)
 	defer tlv.PutSerializer(&backendInterface.serializer)
 	tlv_parser := tlv.NewParser()
@@ -211,8 +213,8 @@ func (s *SocketServer) handleConnection(conn net.Conn) {
 				backendInterface.Handle(receivedMessage)
 				LOG("Server: Socket send")
 				conn.Write(backendInterface.serializer.Bytes())
+				backendInterface.serializer.Reset()
 			}
-			backendInterface.serializer.Reset()
 			persistentBuffer = persistentBuffer[:0]
 		}
 
