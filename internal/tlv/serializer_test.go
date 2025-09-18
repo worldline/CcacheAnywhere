@@ -17,7 +17,7 @@ func TestNewSerializer(t *testing.T) {
 
 func TestAddUint8Field(t *testing.T) {
 	s := NewSerializer(1024)
-	s.BeginMessage(1, constants.MsgTypeGetResponse)
+	s.BeginMessage(1, 2, constants.MsgTypeGetResponse)
 
 	err := s.AddUint8Field(1, 42)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestAddFieldInternal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewSerializer(int(constants.MaxFieldSize))
-			s.BeginMessage(1, 1)
+			s.BeginMessage(1, 1, 1)
 
 			err := s.addFieldInternal(tt.tag, tt.data)
 			if (err != nil) != tt.expectsErr {

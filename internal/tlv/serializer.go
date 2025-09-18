@@ -5,12 +5,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 )
 
 var serializerPool = sync.Pool{
 	New: func() any {
-		return NewSerializer(int(constants.MaxFieldSize))
+		return NewSerializer(1024)
 	},
 }
 
@@ -31,6 +32,31 @@ func NewSerializer(capacity int) *Serializer {
 	}
 }
 
+// encodeLength encodes a length using NDN variable-length encoding
+func encodeLength(buf []byte, length uint32) int {
+	if length <= uint32(constants.Length1ByteMax) {
+		buf[0] = uint8(length)
+		return 1
+	} else if length <= 0xFFFF {
+		buf[0] = constants.Length3ByteFlag
+		binary.LittleEndian.PutUint16(buf[1:], uint16(length))
+		return 3
+	} else if length <= 0xFFFFFFFF {
+		buf[0] = constants.Length5ByteFlag
+		binary.LittleEndian.PutUint32(buf[1:], length)
+		return 5
+	} else {
+		buf[0] = constants.Length9ByteFlag
+		binary.LittleEndian.PutUint64(buf[1:], uint64(length))
+		return 9
+	}
+}
+
+type Serializer struct {
+	buffer []byte
+	pos    int
+}
+
 // resets the serializer for reuse
 //
 // sets pointer to the beginning of the buffer
@@ -39,10 +65,11 @@ func (s *Serializer) Reset() {
 }
 
 // BeginMessage starts a new message with the given type
-func (s *Serializer) BeginMessage(version uint16, msgType uint16) error {
+func (s *Serializer) BeginMessage(version uint8, num_fields uint8, msgType uint16) error {
 	s.ensureCapacity(constants.TLVHeaderSize)
 
-	binary.LittleEndian.PutUint16(s.buffer, version)
+	s.buffer[0] = version
+	s.buffer[1] = num_fields
 	binary.LittleEndian.PutUint16(s.buffer[2:], msgType)
 	s.pos += 4
 	return nil
@@ -58,10 +85,7 @@ func (s *Serializer) ensureCapacity(minCapacity int) {
 	}
 
 	// Reallocate with growth strategy
-	newCap := cap(s.buffer) * 2
-	if newCap < minCapacity {
-		newCap = minCapacity
-	}
+	newCap := max(int(1.5*float64(cap(s.buffer))), minCapacity)
 
 	newBuffer := make([]byte, len(s.buffer), newCap)
 	copy(newBuffer, s.buffer)
@@ -187,5 +211,29 @@ func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Read
 		return fmt.Errorf("expected %d bytes, got %d", dataLen, totalRead)
 	}
 
+	return nil
+}
+
+func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size int64) error {
+	// write encoding for constants.TypeValue
+	s.buffer[s.pos] = constants.TypeValue
+	s.pos += 1
+	s.pos += encodeLength(s.buffer[s.pos:], uint32(size))
+
+	conn.Write(s.Bytes())
+	written, err := io.CopyN(conn, rc, size)
+	if err != nil {
+		fmt.Println("You got an issue son!")
+		return err
+	}
+	if written != size {
+		fmt.Println("You got an issue son!")
+	}
+
+	err = rc.Close()
+	s.Reset()
+	if err != nil {
+		return err
+	}
 	return nil
 }

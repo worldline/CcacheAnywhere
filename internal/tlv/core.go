@@ -18,13 +18,25 @@ type TLVField struct {
 	Data   []byte // Slice pointing to original buffer
 }
 
+type MessageHeader struct {
+	Version   uint8
+	NumFields uint8
+	MsgType   uint16
+}
+
 type Message struct {
 	Type   uint16
 	Fields []TLVField
 }
 
-type Parser struct {
-	fields []TLVField // Reused slice to avoid allocations
+// FindField finds the first field with the given type
+func (m *Message) FindField(fieldTag uint8) *TLVField {
+	for i := range m.Fields {
+		if m.Fields[i].Tag == fieldTag {
+			return &m.Fields[i]
+		}
+	}
+	return nil
 }
 
 func (fld *TLVField) String() string {
@@ -36,53 +48,27 @@ func (fld *TLVField) String() string {
 	return fmt.Sprintf("FLD{Tag: %v, Len: %v, Data: %v..%v}", fld.Tag, fld.Length, fld.Data[:num], fld.Data[send:])
 }
 
-type Serializer struct {
-	buffer []byte
-	pos    int
+// GetString extracts a string value from a field
+func (f *TLVField) GetString() string {
+	return string(f.Data)
 }
 
-// encodeLength encodes a length using NDN variable-length encoding
-func encodeLength(buf []byte, length uint32) int {
-	if length <= uint32(constants.Length1ByteMax) {
-		buf[0] = uint8(length)
-		return 1
-	} else if length <= 0xFFFF {
-		buf[0] = constants.Length3ByteFlag
-		binary.LittleEndian.PutUint16(buf[1:], uint16(length))
-		return 3
-	} else {
-		buf[0] = constants.Length5ByteFlag
-		binary.LittleEndian.PutUint32(buf[1:], length)
-		return 5
-	}
+// GetBool extracts a boolean value from a field
+func (f *TLVField) GetBool() bool {
+	return len(f.Data) > 0 && f.Data[0] != 0
 }
 
-// decodeLength decodes NDN variable-length encoding
-// Returns (length, bytesConsumed, error)
-func decodeLength(buf []byte) (uint32, int, error) {
-	if len(buf) < 1 {
-		return 0, 0, constants.ErrTruncatedData
+// GetUint32 extracts a uint32 value from a field
+func (f *TLVField) GetUint32() uint32 {
+	if len(f.Data) < 4 {
+		return 0
 	}
+	return binary.LittleEndian.Uint32(f.Data)
+}
 
-	firstByte := buf[0]
-
-	if firstByte <= constants.Length1ByteMax {
-		return uint32(firstByte), 1, nil
-	} else if firstByte == constants.Length3ByteFlag {
-		if len(buf) < 3 {
-			return 0, 0, constants.ErrTruncatedData
-		}
-		length := binary.LittleEndian.Uint16(buf[1:3])
-		return uint32(length), 3, nil
-	} else if firstByte == constants.Length5ByteFlag {
-		if len(buf) < 5 {
-			return 0, 0, constants.ErrTruncatedData
-		}
-		length := binary.LittleEndian.Uint32(buf[1:5])
-		return length, 5, nil
-	}
-
-	return 0, 0, constants.ErrInvalidLength
+// GetBytes returns the raw bytes of the field
+func (f *TLVField) GetBytes() []byte {
+	return f.Data
 }
 
 // lengthEncodingSize returns how many bytes are needed to encode a length
@@ -91,7 +77,9 @@ func lengthEncodingSize(length uint32) int {
 		return 1
 	} else if length <= 0xFFFF {
 		return 3
-	} else {
+	} else if length <= 0xFFFFFFFF {
 		return 5
+	} else {
+		return 9
 	}
 }
