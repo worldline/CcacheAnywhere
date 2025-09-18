@@ -15,8 +15,6 @@ import (
 	"ccache-backend-client/internal/constants"
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
-	storage "ccache-backend-client/internal/storage"
-	"ccache-backend-client/internal/tlv"
 )
 
 type SocketServer struct {
@@ -25,15 +23,9 @@ type SocketServer struct {
 	backendType     string
 	listener        net.Listener
 	inactivityTimer *time.Timer
+	handlerFactory  *ConnectionHandlerFactory
 	mu              sync.Mutex
 	wg              sync.WaitGroup
-}
-
-var bufferPool = sync.Pool{
-	New: func() any {
-		buf := make([]byte, 0, 4096)
-		return &buf
-	},
 }
 
 // NewServer creates and initializes a new Unix domain socket server.
@@ -76,6 +68,7 @@ func NewServer(socketPath string, bufferSize int, btype string) (*SocketServer, 
 		backendType:     btype,
 		listener:        l,
 		inactivityTimer: time.NewTimer(constants.INACTIVITY_TIMEOUT),
+		handlerFactory:  NewConnectionHandlerFactory(btype),
 	}, nil
 }
 
@@ -163,63 +156,13 @@ func (s *SocketServer) Start() {
 // Once the backend sends a response it is serialized and send over
 // the socket.
 func (s *SocketServer) handleConnection(conn net.Conn) {
-	defer conn.Close()
-
-	fd, err := conn.(*net.UnixConn).File()
+	handler, err := s.handlerFactory.CreateHandler(conn, s.resetInactivityTimer)
 	if err != nil {
+		LOG("Failed to create connection handler: %v", err)
 		return
 	}
 
-	backendInterface, err := NewBackendHandler(s.backendType)
-	defer tlv.PutSerializer(&backendInterface.serializer)
-	tlv_parser := tlv.NewParser()
-
-	if err != nil {
-		WARN("%v", err.Error())
-		return
-	}
-
-	persistentBufPtr := bufferPool.Get().(*[]byte)
-	persistentBuffer := (*persistentBufPtr)[:0]
-	defer func() {
-		*persistentBufPtr = persistentBuffer[:0]
-		bufferPool.Put(persistentBufPtr)
-	}()
-	buf := make([]byte, tlv.FIXED_BUF_SIZE)
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			LOG("Connection closed: %d", fd.Fd())
-			return
-		}
-
-		if n > 0 {
-			persistentBuffer = append(persistentBuffer, buf[:n]...)
-			packet, err := tlv_parser.Parse(persistentBuffer)
-			if err != nil {
-				continue
-			}
-			LOG("Received %v", packet.Fields)
-
-			receivedMessage, err := storage.Assemble(packet)
-
-			if err != nil {
-				LOG("Connection closing! %v", err)
-				return
-			}
-
-			if receivedMessage != nil { // handling
-				LOG("Server: Handle packet")
-				backendInterface.Handle(receivedMessage)
-				LOG("Server: Socket send")
-				conn.Write(backendInterface.serializer.Bytes())
-				backendInterface.serializer.Reset()
-			}
-			persistentBuffer = persistentBuffer[:0]
-		}
-
-		s.resetInactivityTimer()
-	}
+	handler.Process()
 }
 
 // monitorInactivity runs an internal loop to monitor inactivity based on a timer.
