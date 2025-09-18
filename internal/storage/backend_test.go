@@ -23,7 +23,7 @@ func TestHttpStorageBackend_Get(t *testing.T) {
 	backend := NewHTTPBackend(u, []Attribute{})
 
 	serializer := tlv.NewSerializer(1024)
-	err := backend.Get([]byte{0x01, 0x02}, serializer)
+	_, _, err := backend.Get([]byte{0x01, 0x02})
 
 	if err != nil {
 		t.Fatalf("Get() failed: %v", err)

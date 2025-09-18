@@ -23,7 +23,7 @@ func BenchmarkSerializerPool(b *testing.B) {
 	token := make([]byte, LARGE_BUFFER)
 	for i := 0; i < b.N; i++ {
 		s := GetSerializer()
-		s.BeginMessage(1, 1)
+		s.BeginMessage(1, 1, 1)
 		s.AddUint8Field(1, 42)
 		rand.Read(token)
 		s.AddField(constants.TypeValue, token)
@@ -35,7 +35,7 @@ func BenchmarkNoCopySerializerPool(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s := GetSerializer()
-		s.BeginMessage(1, 1)
+		s.BeginMessage(1, 1, 1)
 		s.AddUint8Field(1, 42)
 		reader := NewSimpleRandomReader()
 		s.AddFieldFromReader(constants.TypeValue, reader, LARGE_BUFFER)
