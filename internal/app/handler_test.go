@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"net"
 	"testing"
 
 	"ccache-backend-client/internal/constants"
@@ -29,13 +32,14 @@ type mockBackend struct {
 	removeError  error
 }
 
-func (m *mockBackend) Get(key []byte, serializer *tlv.Serializer) error {
+func (m *mockBackend) Get(key []byte) (io.ReadCloser, int64, error) {
 	// Simulate Get call adding data to serializer
 	m.getCalled = true
 	if m.getError != nil {
-		return m.getError
+		return nil, 0, m.getError
 	}
-	return serializer.AddField(constants.TypeValue, []byte("mock data"))
+	mock := []byte("mock data")
+	return io.NopCloser(bytes.NewReader(mock)), int64(len(mock)), nil
 }
 
 func (m *mockBackend) Put(key []byte, data []byte, onlyIfMissing bool) (bool, error) {
@@ -66,12 +70,16 @@ func (m *mockMessage) Create(*tlv.Message) error {
 	return nil
 }
 
-func (m *mockMessage) Write(backend storage.Backend, serializer *tlv.Serializer) error {
+func (m *mockMessage) WriteToBackend(backend storage.Backend) error {
 	m.writeCalled = true
 	return m.writeError
 }
 
-func (m *mockMessage) Read() storage.StatusCode {
+func (m *mockMessage) WriteToSocket(conn net.Conn, s *tlv.Serializer) error {
+	return nil
+}
+
+func (m *mockMessage) ReadStatus() storage.StatusCode {
 	m.readCalled = true
 	return m.status
 }
@@ -194,9 +202,10 @@ func TestBackendHandler_Handle(t *testing.T) {
 
 			// Create handler with mock backend
 			handler := &BackendHandler{
-				node:       mockBackend,
-				serializer: *tlv.GetSerializer(),
+				node: mockBackend,
 			}
+
+			serializer := tlv.GetSerializer()
 
 			// Call Handle
 			handler.Handle(mockMsg)
@@ -211,12 +220,12 @@ func TestBackendHandler_Handle(t *testing.T) {
 			}
 
 			// Verify serializer has data
-			if handler.serializer.Len() == 0 {
+			if serializer.Len() == 0 {
 				t.Error("Handle() serializer should contain data after handling")
 			}
 
 			// Verify serializer contains the status code field
-			data := handler.serializer.Bytes()
+			data := serializer.Bytes()
 			if len(data) < 6 { // At least header (4 bytes) + status field (2+ bytes)
 				t.Errorf("Handle() serializer data too short: %d bytes", len(data))
 			}
@@ -238,16 +247,16 @@ func TestBackendHandler_HandleIntegration(t *testing.T) {
 
 	// Create handler
 	handler := &BackendHandler{
-		node:       mockBackend,
-		serializer: *tlv.GetSerializer(),
+		node: mockBackend,
 	}
 
+	serializer := tlv.GetSerializer()
 	// Handle the message
 	handler.Handle(mockMsg)
 
 	// Verify the serializer contains expected structure
 	// Should have at least: version(2) + msgtype(2) + status_field_header + status_value
-	data := handler.serializer.Bytes()
+	data := serializer.Bytes()
 	if len(data) < 6 {
 		t.Errorf("Expected at least 6 bytes in serialized data, got %d", len(data))
 	}
