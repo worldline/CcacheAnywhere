@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	urlib "net/url"
@@ -13,10 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"ccache-backend-client/internal/constants"
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
-	"ccache-backend-client/internal/tlv"
 )
 
 type HttpStorageBackend struct {
@@ -276,11 +275,11 @@ func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
 // Returns:
 // - string: The value associated with the key.
 // - error: An error if the retrieval fails.
-func (h *HttpStorageBackend) Get(key []byte, serializer *tlv.Serializer) error {
+func (h *HttpStorageBackend) Get(key []byte) (io.ReadCloser, int64, error) {
 	keyPath := h.getEntryPath(key)
 	req, err := http.NewRequest("GET", keyPath, nil)
 	if err != nil {
-		return &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to delete %s from HTTP storage", key),
 			Code:    req.Response.StatusCode}
 	}
@@ -292,14 +291,12 @@ func (h *HttpStorageBackend) Get(key []byte, serializer *tlv.Serializer) error {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get %s from HTTP storage!", key),
 			Code:    http.StatusInternalServerError}
 	}
-	defer resp.Body.Close()
 
-	// Zero-copy: read directly into serializer
-	return serializer.AddFieldFromReader(constants.TypeValue, resp.Body, resp.ContentLength)
+	return resp.Body, resp.ContentLength, nil
 }
 
 // Put stores data associated with the specified key in the HTTP storage backend.

@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	urlib "net/url"
 	"runtime"
 	"strings"
 	"time"
 
-	"ccache-backend-client/internal/constants"
 	//lint:ignore ST1001 do want nice LOG operations
 	. "ccache-backend-client/internal/logger"
-	"ccache-backend-client/internal/tlv"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -163,10 +162,10 @@ func (h *GCSStorageBackend) ResolveProtocolCode(code int) StatusCode {
 	}
 }
 
-func (h *GCSStorageBackend) Get(key []byte, serializer *tlv.Serializer) error {
+func (h *GCSStorageBackend) Get(key []byte) (io.ReadCloser, int64, error) {
 	objectName, err := formatDigest(key)
 	if err != nil {
-		return &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Local error %s: %v", objectName, err.Error()),
 			Code:    404,
 		}
@@ -179,21 +178,20 @@ func (h *GCSStorageBackend) Get(key []byte, serializer *tlv.Serializer) error {
 	reader, err := objHandle.NewReader(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
-			return &BackendFailure{
+			return nil, 0, &BackendFailure{
 				Message: fmt.Sprintf("Object %s not found in bucket %s", objectName, h.bucketName),
 				Code:    404,
 			}
 		}
-		return &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get object %s: %v", objectName, err),
 			Code:    500,
 		}
 	}
-	defer reader.Close()
 
 	// remember to update custom time
 	go setMetadata(h.bucketName, objectName)
-	return serializer.AddFieldFromReader(constants.TypeValue, reader, reader.Attrs.Size)
+	return io.NopCloser(reader), reader.Attrs.Size, nil
 }
 
 func (h *GCSStorageBackend) Remove(key []byte) (bool, error) {
