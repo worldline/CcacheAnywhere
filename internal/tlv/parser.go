@@ -42,7 +42,7 @@ type Parser struct {
 
 // decodeLength decodes NDN variable-length encoding
 // Returns (length, bytesConsumed, error)
-func decodeLength(buf []byte) (uint32, int, error) {
+func decodeLength(buf []byte) (uint64, int, error) {
 	if len(buf) < 1 {
 		return 0, 0, constants.ErrTruncatedData
 	}
@@ -50,25 +50,25 @@ func decodeLength(buf []byte) (uint32, int, error) {
 	firstByte := buf[0]
 
 	if firstByte <= constants.Length1ByteMax {
-		return uint32(firstByte), 1, nil
+		return uint64(firstByte), 1, nil
 	} else if firstByte == constants.Length3ByteFlag {
 		if len(buf) < 3 {
 			return 0, 0, constants.ErrTruncatedData
 		}
 		length := binary.LittleEndian.Uint16(buf[1:3])
-		return uint32(length), 3, nil
+		return uint64(length), 3, nil
 	} else if firstByte == constants.Length5ByteFlag {
 		if len(buf) < 5 {
 			return 0, 0, constants.ErrTruncatedData
 		}
 		length := binary.LittleEndian.Uint32(buf[1:5])
-		return length, 5, nil
+		return uint64(length), 5, nil
 	} else if firstByte == constants.Length9ByteFlag {
 		if len(buf) < 9 {
 			return 0, 0, constants.ErrTruncatedData
 		}
 		length := binary.LittleEndian.Uint64(buf[1:5])
-		return uint32(length), 5, nil // TODO change length to uint64
+		return length, 5, nil // TODO change length to uint64
 	}
 
 	return 0, 0, constants.ErrInvalidLength

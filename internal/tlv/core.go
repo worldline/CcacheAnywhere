@@ -72,8 +72,8 @@ func (f *TLVField) GetBytes() []byte {
 }
 
 // lengthEncodingSize returns how many bytes are needed to encode a length
-func lengthEncodingSize(length uint32) int {
-	if length <= uint32(constants.Length1ByteMax) {
+func lengthEncodingSize(length uint64) int {
+	if length <= uint64(constants.Length1ByteMax) {
 		return 1
 	} else if length <= 0xFFFF {
 		return 3

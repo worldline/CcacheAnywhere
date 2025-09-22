@@ -33,8 +33,8 @@ func NewSerializer(capacity int) *Serializer {
 }
 
 // encodeLength encodes a length using NDN variable-length encoding
-func encodeLength(buf []byte, length uint32) int {
-	if length <= uint32(constants.Length1ByteMax) {
+func encodeLength(buf []byte, length uint64) int {
+	if length <= uint64(constants.Length1ByteMax) {
 		buf[0] = uint8(length)
 		return 1
 	} else if length <= 0xFFFF {
@@ -43,7 +43,7 @@ func encodeLength(buf []byte, length uint32) int {
 		return 3
 	} else if length <= 0xFFFFFFFF {
 		buf[0] = constants.Length5ByteFlag
-		binary.LittleEndian.PutUint32(buf[1:], length)
+		binary.LittleEndian.PutUint32(buf[1:], uint32(length))
 		return 5
 	} else {
 		buf[0] = constants.Length9ByteFlag
@@ -132,11 +132,7 @@ func (s *Serializer) AddUint32Field(fieldTag uint8, value uint32) error {
 
 // addFieldInternal handles the actual field serialization
 func (s *Serializer) addFieldInternal(fieldTag uint8, data []byte) error {
-	dataLen := uint32(len(data)) // TODO uint64
-
-	if dataLen > constants.MaxFieldSize {
-		return constants.ErrFieldTooLarge
-	}
+	dataLen := uint64(len(data))
 
 	// Calculate space needed: 1 bytes tag + variable length + data
 	lengthEncSize := lengthEncodingSize(dataLen)
@@ -171,19 +167,15 @@ func (s *Serializer) Len() int {
 
 // AddFieldFromReader adds a field by reading directly from an io.Reader
 // This avoids copying the data through an intermediate buffer
-func (s *Serializer) AddFieldFromReader(fieldTag uint8, reader io.Reader, contentLength int64) error {
-	if contentLength > 0 && contentLength <= int64(constants.MaxFieldSize) {
-		return s.addFieldFromReaderWithLength(fieldTag, reader, uint32(contentLength))
+func (s *Serializer) AddFieldFromReader(fieldTag uint8, reader io.Reader, contentLength uint64) error {
+	if contentLength > 0 {
+		return s.addFieldFromReaderWithLength(fieldTag, reader, contentLength)
 	}
 
 	return constants.ErrFieldTooLarge
 }
 
-func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Reader, dataLen uint32) error {
-	if dataLen > constants.MaxFieldSize {
-		return constants.ErrFieldTooLarge
-	}
-
+func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Reader, dataLen uint64) error {
 	lengthEncSize := lengthEncodingSize(dataLen)
 	needed := 1 + lengthEncSize + int(dataLen)
 	s.ensureCapacity(s.pos + needed)
@@ -214,19 +206,19 @@ func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Read
 	return nil
 }
 
-func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size int64) error {
+func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size uint64) error {
 	// write encoding for constants.TypeValue
 	s.buffer[s.pos] = constants.TypeValue
 	s.pos += 1
-	s.pos += encodeLength(s.buffer[s.pos:], uint32(size))
+	s.pos += encodeLength(s.buffer[s.pos:], size)
 
 	conn.Write(s.Bytes())
-	written, err := io.CopyN(conn, rc, size)
+	written, err := io.CopyN(conn, rc, int64(size))
 	if err != nil {
 		fmt.Println("You got an issue son!")
 		return err
 	}
-	if written != size {
+	if uint64(written) != size {
 		fmt.Println("You got an issue son!")
 	}
 

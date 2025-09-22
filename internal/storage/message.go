@@ -132,7 +132,7 @@ func (m *GetMessage) WriteToSocket(conn net.Conn, s *tlv.Serializer) error {
 	s.BeginMessage(0x01, 2, constants.MsgTypeGetResponse)
 	s.AddUint8Field(constants.TypeStatusCode, uint8(m.ReadStatus()))
 	if m.ReadStatus() == SUCCESS {
-		s.Finalize(conn, m.data, m.dataSize)
+		s.Finalize(conn, m.data, uint64(m.dataSize))
 	}
 
 	s.Reset()

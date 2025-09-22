@@ -54,12 +54,11 @@ const (
 
 // NDN Length encoding constants
 const (
-	Length1ByteMax  uint8  = 252 // 0xFC
-	Length3ByteFlag uint8  = 253 // 0xFD
-	Length5ByteFlag uint8  = 254 // 0xFE
-	Length9ByteFlag uint8  = 255 // 0xFE
-	TLVHeaderSize   int    = 4
-	MaxFieldSize    uint32 = 0xFFFFF
+	Length1ByteMax  uint8 = 252 // 0xFC
+	Length3ByteFlag uint8 = 253 // 0xFD
+	Length5ByteFlag uint8 = 254 // 0xFE
+	Length9ByteFlag uint8 = 255 // 0xFE
+	TLVHeaderSize   int   = 4
 )
 
 // Errors
