@@ -37,7 +37,7 @@ func NewBackendHandler(storage_url string) (*BackendHandler, error) {
 			node: storage.GetHttpBackend(furl, storage.BackendAttributes)}, nil
 	case "gs":
 		return &BackendHandler{
-			node: storage.NewGCSBackend(furl, storage.BackendAttributes)}, nil
+			node: storage.GetGCSBackend(furl, storage.BackendAttributes)}, nil
 	default:
 		return nil, fmt.Errorf("backend not implemented for prefix: %s", prefix)
 	}

@@ -8,6 +8,7 @@ import (
 	urlib "net/url"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	//lint:ignore ST1001 do want nice LOG operations
@@ -32,6 +33,18 @@ type GCSStorageBackend struct {
 	storageClass string
 	location     string
 	timeout      time.Duration
+}
+
+var (
+	gcsBackend *GCSStorageBackend
+	gcsOnce    sync.Once
+)
+
+func GetGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
+	gcsOnce.Do(func() {
+		gcsBackend = NewGCSBackend(url, attributes)
+	})
+	return gcsBackend
 }
 
 func NewGCSAttributes() *GCSAttributes {
