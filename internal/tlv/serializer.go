@@ -2,6 +2,9 @@ package tlv
 
 import (
 	"ccache-backend-client/internal/constants"
+
+	//lint:ignore ST1001 for clean LOG operations
+	. "ccache-backend-client/internal/logger"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -57,7 +60,7 @@ type Serializer struct {
 	pos    int
 }
 
-// resets the serializer for reuse
+// Reset resets the serializer for reuse
 //
 // sets pointer to the beginning of the buffer
 func (s *Serializer) Reset() {
@@ -206,6 +209,11 @@ func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Read
 	return nil
 }
 
+// Finalize is responsible for adding the value to the serialized message.
+//
+// It takes a net.Conn and an io.ReadCloser as arguments. The ReadCloser
+// is immediately copied to the connection's buffer to avoid memory allocation
+// within the program. This function should be supplied a connection to write on.
 func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size uint64) error {
 	// write encoding for constants.TypeValue
 	s.buffer[s.pos] = constants.TypeValue
@@ -215,11 +223,11 @@ func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size uint64) erro
 	conn.Write(s.Bytes())
 	written, err := io.CopyN(conn, rc, int64(size))
 	if err != nil {
-		fmt.Println("You got an issue son!")
+		LOG("Error writing to socket!")
 		return err
 	}
 	if uint64(written) != size {
-		fmt.Println("You got an issue son!")
+		LOG("Write interrupted!")
 	}
 
 	err = rc.Close()

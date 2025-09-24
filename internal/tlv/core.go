@@ -14,7 +14,7 @@ var (
 
 type TLVField struct {
 	Tag    uint8
-	Length uint32
+	Length uint64
 	Data   []byte // Slice pointing to original buffer
 }
 
