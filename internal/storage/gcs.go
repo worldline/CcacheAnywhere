@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	urlib "net/url"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -24,7 +23,6 @@ type GCSAttributes struct {
 	Endpoint        string
 	Timeout         time.Duration
 	StorageClass    string
-	Location        string
 }
 
 type GCSStorageBackend struct {
@@ -91,16 +89,18 @@ func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) 
 	if attrs.CredentialsFile != "" {
 		return option.WithCredentialsFile(attrs.CredentialsFile), nil
 	}
-	if runtime.GOOS == "windows" {
-		return option.WithCredentialsFile("%APPDATA%\\gcloud\application_default_credentials.json"), nil
-	}
-	return option.WithCredentialsFile("$HOME/.config/gcloud/application_default_credentials.json"), nil
+
+	// If no file is specified, rely on ADC.
+	// The client library automatically discovers credentials.
+	return option.WithEndpoint(""), nil
 }
 
 func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	// something of form gs://my_bucket_name
 	defaultAttrs := NewGCSAttributes()
 
+	// The attributes here can be expanded to parse more configurations for
+	// the storage backend.
 	for _, attr := range attributes {
 		switch attr.Key {
 		case "credentials-file":
@@ -112,8 +112,9 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 			// Optional custom endpoint URL
 			defaultAttrs.Endpoint = attr.Value
 		case "timeout":
-			defaultAttrs.Timeout = parseTimeoutAttribute(attr.Value)
+			defaultAttrs.Timeout = parseTimeout(attr.Value)
 		case "storage-class":
+			// https://cloud.google.com/storage/docs/storage-classes
 			switch attr.Value {
 			case "STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE":
 				defaultAttrs.StorageClass = attr.Value
@@ -121,8 +122,6 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 				defaultAttrs.StorageClass = "STANDARD"
 				LOG("Unknown storage class: %s - defaulting to Standard", attr.Value)
 			}
-		case "location":
-			defaultAttrs.Location = attr.Value
 		default:
 			LOG("Unknown attribute: %s", attr.Key)
 		}
@@ -136,8 +135,24 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	}
 
 	// Create GCS client with context and options
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx, credsOption)
+	if defaultAttrs.Timeout == 0 {
+		defaultAttrs.Timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultAttrs.Timeout)
+	defer cancel()
+
+	var clientOptions []option.ClientOption
+	if defaultAttrs.Endpoint != "" {
+		clientOptions = append(clientOptions, option.WithEndpoint(defaultAttrs.Endpoint))
+	}
+	if credsOption != nil {
+		clientOptions = append(clientOptions, credsOption)
+	}
+	if defaultAttrs.ProjectID != "" {
+		clientOptions = append(clientOptions, option.WithTokenSource(nil))
+	}
+
+	client, err := storage.NewClient(ctx, clientOptions...)
 	if err != nil {
 		LOG("Error creating GCS client: %v", err)
 		return nil
