@@ -2,7 +2,7 @@ package backend
 
 import (
 	"bytes"
-	"ccache-backend-client/internal/tlv"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,18 +22,23 @@ func TestHttpStorageBackend_Get(t *testing.T) {
 	u, _ := url.Parse(server.URL)
 	backend := NewHTTPBackend(u, []Attribute{})
 
-	serializer := tlv.NewSerializer(1024)
-	_, _, err := backend.Get([]byte{0x01, 0x02})
-
+	respBody, respLen, err := backend.Get([]byte{0x01, 0x02})
 	if err != nil {
 		t.Fatalf("Get() failed: %v", err)
 	}
 
-	if serializer.Len() == 0 {
-		t.Error("Expected serializer to contain data")
+	if respLen == 0 {
+		t.Error("Expected response to contain data")
 	}
 
-	if !bytes.Contains(serializer.Bytes(), []byte("test data")) {
-		t.Error("Serializer should contain received data!")
+	buf := make([]byte, 20)
+	n, err := io.ReadAtLeast(respBody, buf, int(respLen))
+
+	if err != nil || respLen != int64(n) {
+		t.Errorf("Should read correct length: respLen=%d and n=%d", int(respLen), n)
+	}
+
+	if !bytes.Contains(buf, []byte("test data")) {
+		t.Error("Did not get correct data!")
 	}
 }

@@ -22,9 +22,9 @@ func createTestTLVData(msgType uint16, fields []testField) []byte {
 	for _, field := range fields {
 		buf = append(buf, field.tag)
 		pos++
-		lengthEncSize := lengthEncodingSize(uint32(len(field.data)))
+		lengthEncSize := lengthEncodingSize(uint64(len(field.data)))
 		tmp := make([]byte, lengthEncSize)
-		pos += encodeLength(tmp, uint32(len(field.data)))
+		pos += encodeLength(tmp, uint64(len(field.data)))
 
 		buf = append(buf, tmp...)
 		buf = append(buf, field.data...)
@@ -100,7 +100,7 @@ func TestParser_ParseValidMessage(t *testing.T) {
 			t.Errorf("Field %d: expected tag %d, got %d", i, expectedField.tag, field.Tag)
 		}
 
-		if field.Length != uint32(len(expectedField.data)) {
+		if field.Length != uint64(len(expectedField.data)) {
 			t.Errorf("Field %d: expected length %d, got %d", i, len(expectedField.data), field.Length)
 		}
 

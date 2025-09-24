@@ -47,7 +47,7 @@ func BenchmarkEncodeLength(b *testing.B) {
 	buf := make([]byte, 8)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		encodeLength(buf, uint32(i%1000))
+		encodeLength(buf, uint64(i%1000))
 	}
 }
 

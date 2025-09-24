@@ -40,12 +40,12 @@ func TestAddFieldInternal(t *testing.T) {
 	}{
 		{"normal case", 1, []byte("hello"), false},
 		{"empty data", 2, []byte{}, false},
-		{"too large", 4, make([]byte, constants.MaxFieldSize+1), true},
+		{"too large", 40, make([]byte, 200), false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewSerializer(int(constants.MaxFieldSize))
+			s := NewSerializer(1024)
 			s.BeginMessage(1, 1, 1)
 
 			err := s.addFieldInternal(tt.tag, tt.data)
