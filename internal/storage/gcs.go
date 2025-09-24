@@ -81,7 +81,7 @@ func setMetadata(bucket, object string) error {
 	if _, err := o.Update(ctx, objectAttrsToUpdate); err != nil {
 		return fmt.Errorf("ObjectHandle(%q).Update: %w", object, err)
 	}
-	LOG("Updated custom metadata for object %v in bucket %v.\n", object, bucket)
+	LOG("Updated custom metadata for object %v in bucket %v.", object, bucket)
 	return nil
 }
 
