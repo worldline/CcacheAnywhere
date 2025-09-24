@@ -2,7 +2,6 @@ package backend
 
 import (
 	"bytes"
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -43,7 +42,7 @@ type httpHeaders struct {
 
 var (
 	httpBackend *HttpStorageBackend
-	once        sync.Once
+	httpOnce    sync.Once
 )
 
 func NewHttpHeaders() *httpHeaders {
@@ -61,11 +60,11 @@ func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend 
 		case "bearer-token":
 			defaultHeaders.bearerToken = attr.Value
 		case "connect-timeout":
-			defaultHeaders.connectionTimeout = parseTimeoutAttribute(attr.Value)
+			defaultHeaders.connectionTimeout = parseTimeout(attr.Value)
 		case "keep-alive":
 			// TODO
 		case "operation-timeout":
-			defaultHeaders.operationTimeout = parseTimeoutAttribute(attr.Value)
+			defaultHeaders.operationTimeout = parseTimeout(attr.Value)
 		case "layout":
 			switch attr.Value {
 			case "bazel":
@@ -124,7 +123,7 @@ func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend 
 }
 
 func GetHttpBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
-	once.Do(func() {
+	httpOnce.Do(func() {
 		httpBackend = NewHTTPBackend(url, attributes)
 	})
 	return httpBackend
@@ -178,25 +177,6 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 	default:
 		panic("unknown layout")
 	}
-}
-
-func formatDigest(data []byte) (string, error) {
-	const base16Bytes = 2
-
-	if len(data) < base16Bytes {
-		return "", fmt.Errorf("data size must be at least %d bytes", base16Bytes)
-	}
-
-	base16Part := hex.EncodeToString(data[:base16Bytes])
-	base32Part := strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(data[base16Bytes:]))
-
-	return base16Part + base32Part, nil
-}
-
-func parseTimeoutAttribute(value string) time.Duration {
-	var timeout time.Duration
-	fmt.Sscanf(value, "%d", &timeout)
-	return time.Duration(timeout.Seconds())
 }
 
 func (h *httpHeaders) emplace(key string, value string) {
