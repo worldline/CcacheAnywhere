@@ -129,10 +129,12 @@ func (m *GetMessage) WriteToBackend(b Backend) (err error) {
 }
 
 func (m *GetMessage) WriteToSocket(conn net.Conn, s *tlv.Serializer) error {
-	s.BeginMessage(0x01, 2, constants.MsgTypeGetResponse)
+	s.BeginMessage(0x01, 1, constants.MsgTypeGetResponse)
 	s.AddUint8Field(constants.TypeStatusCode, uint8(m.ReadStatus()))
 	if m.ReadStatus() == SUCCESS {
 		s.Finalize(conn, m.data, uint64(m.dataSize))
+	} else {
+		conn.Write(s.Bytes())
 	}
 
 	s.Reset()

@@ -216,6 +216,9 @@ func (s *Serializer) addFieldFromReaderWithLength(fieldTag uint8, reader io.Read
 // within the program. This function should be supplied a connection to write on.
 func (s *Serializer) Finalize(conn net.Conn, rc io.ReadCloser, size uint64) error {
 	// write encoding for constants.TypeValue
+	// increment the length
+	s.buffer[1] += 1
+
 	s.buffer[s.pos] = constants.TypeValue
 	s.pos += 1
 	s.pos += encodeLength(s.buffer[s.pos:], size)
