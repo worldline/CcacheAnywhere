@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	//lint:ignore ST1001 do want pretty LOG function
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
 )
@@ -43,7 +43,7 @@ func NewBackendHandler(storage_url string) (*BackendHandler, error) {
 	}
 }
 
-// Propagate message receoved to the backend server
+// Propagate message received to the backend server
 func (h *BackendHandler) Handle(msg storage.Message) {
 	err := msg.WriteToBackend(h.node)
 

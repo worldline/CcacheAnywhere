@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	//lint:ignore ST1001 do want nice LOG operations
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 )
 

@@ -55,7 +55,7 @@ help:
 	@echo "  test      Run tests"
 	@echo "  run       Build and run the application"
 
-# Everthing around testing
+# Everything around testing
 
 # Run all tests
 .PHONY: test

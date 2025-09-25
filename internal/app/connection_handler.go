@@ -6,8 +6,7 @@ import (
 	"net"
 	"sync"
 
-	//lint:ignore ST1001 do want nice LOG operations
-
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 	storage "ccache-backend-client/internal/storage"
 	"ccache-backend-client/internal/tlv"

@@ -14,7 +14,8 @@ func createTestTLVData(msgType uint16, fields []testField) []byte {
 	pos := 0
 
 	// Write Header (4 bytes)
-	binary.LittleEndian.PutUint16(buf, 0x01)
+	buf[0] = 0x01
+	buf[1] = uint8(len(fields))
 	binary.LittleEndian.PutUint16(buf[2:], msgType)
 	pos += 4
 

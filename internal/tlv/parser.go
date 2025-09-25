@@ -68,7 +68,7 @@ func decodeLength(buf []byte) (uint64, int, error) {
 			return 0, 0, constants.ErrTruncatedData
 		}
 		length := binary.LittleEndian.Uint64(buf[1:5])
-		return length, 5, nil // TODO change length to uint64
+		return length, 9, nil
 	}
 
 	return 0, 0, constants.ErrInvalidLength

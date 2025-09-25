@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"ccache-backend-client/internal/constants"
-	//lint:ignore ST1001 do want nice LOG operations
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 )
 
@@ -150,7 +150,7 @@ func (s *SocketServer) Start() {
 
 // Handles each incoming connection
 //
-// Also takes care of propogating the data to the TLV protocol Parser
+// Also takes care of propagating the data to the TLV protocol Parser
 // and prepares the message for transfer to the backend.
 //
 // Once the backend sends a response it is serialized and send over
