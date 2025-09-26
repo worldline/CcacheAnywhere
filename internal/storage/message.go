@@ -86,10 +86,13 @@ func (m *SetupMessage) Create(body *tlv.Message) error {
 
 func (m *SetupMessage) WriteToSocket(conn net.Conn, s *tlv.Serializer) error {
 	s.BeginMessage(0x01, uint8(len(m.fields))+1, constants.MsgTypeSetupReponse)
-	if m.ReadStatus() == REDIRECT {
-		// TODO add in the setup data
-	} else {
-		s.AddUint8Field(constants.TypeStatusCode, uint8(m.ReadStatus()))
+	s.AddUint8Field(constants.TypeStatusCode, uint8(m.ReadStatus()))
+
+	// add necessary fields
+	if m.ReadStatus() == LOCAL_ERR {
+		for _, fld := range m.fields {
+			s.AddField(fld.GetTag(), fld.Serialize())
+		}
 	}
 
 	conn.Write(s.Bytes())
@@ -228,7 +231,7 @@ func (m *RmMessage) ReadStatus() StatusCode {
 
 func Assemble(p *tlv.Message) (Message, error) {
 	var resultMessage Message
-	switch p.Type { // TODO create the messages
+	switch p.Type {
 	case constants.MsgTypeGet:
 		resultMessage = &GetMessage{}
 	case constants.MsgTypePut:

@@ -32,11 +32,9 @@ func (f *UintFieldRef[T]) String() string {
 	return fmt.Sprintf("TLV{Tag:%d, Length:%d, Data:%v}", f.Tag, f.Length, f.Data)
 }
 
-// Single Serialize method using type switching
+// Single Serialize method using type switching just serializes f.Data
 func (f *UintFieldRef[T]) Serialize() []byte {
-	buf := make([]byte, 2) // Tag + Length
-	buf[0] = f.Tag
-	buf[1] = f.Length
+	buf := make([]byte, 0)
 
 	// Type switch on the actual data
 	switch data := any(f.Data).(type) {
