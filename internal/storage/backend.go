@@ -1,10 +1,15 @@
 package backend
 
 import (
+	"encoding/base32"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 type StatusCode uint8
@@ -31,13 +36,32 @@ type Attribute struct {
 }
 
 type Backend interface {
-	Get([]byte) ([]byte, error)
+	Get(key []byte) (io.ReadCloser, int64, error)
 	Put([]byte, []byte, bool) (bool, error)
 	Remove([]byte) (bool, error)
 	ResolveProtocolCode(int) StatusCode
 }
 
 var BackendAttributes []Attribute
+
+func formatDigest(data []byte) (string, error) {
+	const base16Bytes = 2
+
+	if len(data) < base16Bytes {
+		return "", fmt.Errorf("data size must be at least %d bytes", base16Bytes)
+	}
+
+	base16Part := hex.EncodeToString(data[:base16Bytes])
+	base32Part := strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(data[base16Bytes:]))
+
+	return base16Part + base32Part, nil
+}
+
+func parseTimeout(value string) time.Duration {
+	var timeout time.Duration
+	fmt.Sscanf(value, "%d", &timeout)
+	return time.Duration(timeout.Seconds())
+}
 
 // ParseAttributes reads a JSON configuration file and extracts attributes into a slice.
 //

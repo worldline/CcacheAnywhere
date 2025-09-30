@@ -2,17 +2,18 @@ package backend
 
 import (
 	"bytes"
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	urlib "net/url"
 	"strings"
+	"sync"
 	"time"
 
-	//lint:ignore ST1001 do want nice LOG operations
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 )
 
@@ -26,8 +27,8 @@ type HttpStorageBackend struct {
 type Layout int
 
 const (
-	bazel Layout = iota
-	flat
+	flat Layout = iota
+	bazel
 	subdirs
 )
 
@@ -38,6 +39,11 @@ type httpHeaders struct {
 	operationTimeout  time.Duration
 	layout            Layout
 }
+
+var (
+	httpBackend *HttpStorageBackend
+	httpOnce    sync.Once
+)
 
 func NewHttpHeaders() *httpHeaders {
 	return &httpHeaders{
@@ -54,11 +60,11 @@ func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend 
 		case "bearer-token":
 			defaultHeaders.bearerToken = attr.Value
 		case "connect-timeout":
-			defaultHeaders.connectionTimeout = parseTimeoutAttribute(attr.Value)
+			defaultHeaders.connectionTimeout = parseTimeout(attr.Value)
 		case "keep-alive":
 			// TODO
 		case "operation-timeout":
-			defaultHeaders.operationTimeout = parseTimeoutAttribute(attr.Value)
+			defaultHeaders.operationTimeout = parseTimeout(attr.Value)
 		case "layout":
 			switch attr.Value {
 			case "bazel":
@@ -84,13 +90,43 @@ func NewHTTPBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend 
 		}
 	}
 
+	transport := &http.Transport{
+		// Connection pooling settings
+		MaxIdleConns:        100,              // Total idle connections across all hosts
+		MaxIdleConnsPerHost: 50,               // Idle connections per host
+		MaxConnsPerHost:     100,              // Max concurrent connections per host
+		IdleConnTimeout:     90 * time.Second, // How long to keep idle connections
+
+		// Keep-alive settings
+		DisableKeepAlives: false, // CRITICAL: Enable keep-alive
+
+		// TCP settings
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second, // Connection timeout
+			KeepAlive: 30 * time.Second, // TCP keep-alive
+		}).DialContext,
+
+		// HTTP/2 support
+		ForceAttemptHTTP2: true, // Use HTTP/2 if available
+
+		// Don't disable compression unless needed
+		DisableCompression: false,
+	}
+
 	if url.User != nil {
 		defaultHeaders.bearerToken = url.User.String()
 	}
 
-	httpclient := http.Client{Timeout: defaultHeaders.connectionTimeout}
+	httpclient := http.Client{Transport: transport, Timeout: defaultHeaders.connectionTimeout}
 	return &HttpStorageBackend{url: *url, client: &httpclient,
 		bearer: defaultHeaders.bearerToken, layout: defaultHeaders.layout}
+}
+
+func GetHttpBackend(url *urlib.URL, attributes []Attribute) *HttpStorageBackend {
+	httpOnce.Do(func() {
+		httpBackend = NewHTTPBackend(url, attributes)
+	})
+	return httpBackend
 }
 
 // URL format: http://HOST[:PORT][/PATH]
@@ -141,25 +177,6 @@ func (h *HttpStorageBackend) getEntryPath(key []byte) string {
 	default:
 		panic("unknown layout")
 	}
-}
-
-func formatDigest(data []byte) (string, error) {
-	const base16Bytes = 2
-
-	if len(data) < base16Bytes {
-		return "", fmt.Errorf("data size must be at least %d bytes", base16Bytes)
-	}
-
-	base16Part := hex.EncodeToString(data[:base16Bytes])
-	base32Part := strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(data[base16Bytes:]))
-
-	return base16Part + base32Part, nil
-}
-
-func parseTimeoutAttribute(value string) time.Duration {
-	var timeout time.Duration
-	fmt.Sscanf(value, "%d", &timeout)
-	return time.Duration(timeout.Seconds())
 }
 
 func (h *httpHeaders) emplace(key string, value string) {
@@ -238,11 +255,11 @@ func (h *HttpStorageBackend) Remove(key []byte) (bool, error) {
 // Returns:
 // - string: The value associated with the key.
 // - error: An error if the retrieval fails.
-func (h *HttpStorageBackend) Get(key []byte) ([]byte, error) {
+func (h *HttpStorageBackend) Get(key []byte) (io.ReadCloser, int64, error) {
 	keyPath := h.getEntryPath(key)
 	req, err := http.NewRequest("GET", keyPath, nil)
 	if err != nil {
-		return []byte{}, &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to delete %s from HTTP storage", key),
 			Code:    req.Response.StatusCode}
 	}
@@ -254,19 +271,12 @@ func (h *HttpStorageBackend) Get(key []byte) ([]byte, error) {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return []byte{}, &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get %s from HTTP storage!", key),
 			Code:    http.StatusInternalServerError}
 	}
 
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return []byte{}, &BackendFailure{
-			Message: fmt.Sprintf("Failed to get %s from HTTP storage!", key),
-			Code:    0}
-	}
-	return body, nil
+	return resp.Body, resp.ContentLength, nil
 }
 
 // Put stores data associated with the specified key in the HTTP storage backend.

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	urlib "net/url"
-	"runtime"
 	"strings"
+	"sync"
 	"time"
 
-	//lint:ignore ST1001 do want nice LOG operations
+	//lint:ignore ST1001 for clean LOG operations
 	. "ccache-backend-client/internal/logger"
 
 	"cloud.google.com/go/storage"
@@ -23,7 +23,6 @@ type GCSAttributes struct {
 	Endpoint        string
 	Timeout         time.Duration
 	StorageClass    string
-	Location        string
 }
 
 type GCSStorageBackend struct {
@@ -32,6 +31,18 @@ type GCSStorageBackend struct {
 	storageClass string
 	location     string
 	timeout      time.Duration
+}
+
+var (
+	gcsBackend *GCSStorageBackend
+	gcsOnce    sync.Once
+)
+
+func GetGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
+	gcsOnce.Do(func() {
+		gcsBackend = NewGCSBackend(url, attributes)
+	})
+	return gcsBackend
 }
 
 func NewGCSAttributes() *GCSAttributes {
@@ -68,7 +79,7 @@ func setMetadata(bucket, object string) error {
 	if _, err := o.Update(ctx, objectAttrsToUpdate); err != nil {
 		return fmt.Errorf("ObjectHandle(%q).Update: %w", object, err)
 	}
-	LOG("Updated custom metadata for object %v in bucket %v.\n", object, bucket)
+	LOG("Updated custom metadata for object %v in bucket %v.", object, bucket)
 	return nil
 }
 
@@ -78,16 +89,18 @@ func (attrs *GCSAttributes) getCredentialsOption() (option.ClientOption, error) 
 	if attrs.CredentialsFile != "" {
 		return option.WithCredentialsFile(attrs.CredentialsFile), nil
 	}
-	if runtime.GOOS == "windows" {
-		return option.WithCredentialsFile("%APPDATA%\\gcloud\application_default_credentials.json"), nil
-	}
-	return option.WithCredentialsFile("$HOME/.config/gcloud/application_default_credentials.json"), nil
+
+	// If no file is specified, rely on ADC.
+	// The client library automatically discovers credentials.
+	return option.WithEndpoint(""), nil
 }
 
 func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	// something of form gs://my_bucket_name
 	defaultAttrs := NewGCSAttributes()
 
+	// The attributes here can be expanded to parse more configurations for
+	// the storage backend.
 	for _, attr := range attributes {
 		switch attr.Key {
 		case "credentials-file":
@@ -99,8 +112,9 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 			// Optional custom endpoint URL
 			defaultAttrs.Endpoint = attr.Value
 		case "timeout":
-			defaultAttrs.Timeout = parseTimeoutAttribute(attr.Value)
+			defaultAttrs.Timeout = parseTimeout(attr.Value)
 		case "storage-class":
+			// https://cloud.google.com/storage/docs/storage-classes
 			switch attr.Value {
 			case "STANDARD", "NEARLINE", "COLDLINE", "ARCHIVE":
 				defaultAttrs.StorageClass = attr.Value
@@ -108,8 +122,6 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 				defaultAttrs.StorageClass = "STANDARD"
 				LOG("Unknown storage class: %s - defaulting to Standard", attr.Value)
 			}
-		case "location":
-			defaultAttrs.Location = attr.Value
 		default:
 			LOG("Unknown attribute: %s", attr.Key)
 		}
@@ -123,8 +135,24 @@ func NewGCSBackend(url *urlib.URL, attributes []Attribute) *GCSStorageBackend {
 	}
 
 	// Create GCS client with context and options
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx, credsOption)
+	if defaultAttrs.Timeout == 0 {
+		defaultAttrs.Timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultAttrs.Timeout)
+	defer cancel()
+
+	var clientOptions []option.ClientOption
+	if defaultAttrs.Endpoint != "" {
+		clientOptions = append(clientOptions, option.WithEndpoint(defaultAttrs.Endpoint))
+	}
+	if credsOption != nil {
+		clientOptions = append(clientOptions, credsOption)
+	}
+	if defaultAttrs.ProjectID != "" {
+		clientOptions = append(clientOptions, option.WithTokenSource(nil))
+	}
+
+	client, err := storage.NewClient(ctx, clientOptions...)
 	if err != nil {
 		LOG("Error creating GCS client: %v", err)
 		return nil
@@ -162,10 +190,10 @@ func (h *GCSStorageBackend) ResolveProtocolCode(code int) StatusCode {
 	}
 }
 
-func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
+func (h *GCSStorageBackend) Get(key []byte) (io.ReadCloser, int64, error) {
 	objectName, err := formatDigest(key)
 	if err != nil {
-		return []byte{}, &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Local error %s: %v", objectName, err.Error()),
 			Code:    404,
 		}
@@ -178,29 +206,20 @@ func (h *GCSStorageBackend) Get(key []byte) ([]byte, error) {
 	reader, err := objHandle.NewReader(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
-			return []byte{}, &BackendFailure{
+			return nil, 0, &BackendFailure{
 				Message: fmt.Sprintf("Object %s not found in bucket %s", objectName, h.bucketName),
 				Code:    404,
 			}
 		}
-		return []byte{}, &BackendFailure{
+		return nil, 0, &BackendFailure{
 			Message: fmt.Sprintf("Failed to get object %s: %v", objectName, err),
-			Code:    500,
-		}
-	}
-	defer reader.Close()
-
-	body, err := io.ReadAll(reader)
-	if err != nil {
-		return []byte{}, &BackendFailure{
-			Message: fmt.Sprintf("Failed to read object %s: %v", objectName, err),
 			Code:    500,
 		}
 	}
 
 	// remember to update custom time
 	go setMetadata(h.bucketName, objectName)
-	return body, nil
+	return io.NopCloser(reader), reader.Attrs.Size, nil
 }
 
 func (h *GCSStorageBackend) Remove(key []byte) (bool, error) {

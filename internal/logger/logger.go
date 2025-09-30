@@ -21,8 +21,8 @@ var (
 func OpenLogFile() error {
 	now := time.Now()
 	timestamp := now.Format("2006-01-02_15-04-05")
-	// /home/rocky/repos/py_server_script/daemons
-	filename := fmt.Sprintf("$HOME/.ccache/logs/%s_CLIENT_LOG", timestamp)
+	filename := fmt.Sprintf("%s_CLIENT_LOG", timestamp)
+	fmt.Println("Helper logs on", filename)
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
