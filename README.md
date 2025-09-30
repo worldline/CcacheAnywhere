@@ -56,6 +56,16 @@ By using this mediator, ccache can interact with storage systems it doesn't nati
 
     This will create 3 executables `ccache-backend-client`, `ccache-gs-storage` and `ccache-http-storage` in `./bin`.
 
+3. **Install:**
+
+   Navigate to the project's root directory and run:
+
+   ```bash
+    make install
+    ```
+
+   See the Makefile for information on installation directories and executable names.
+
 ### Running the Server
 
 You can run the compiled executable directly. Beware that this program is not supposed to be a stand-alone process but rather should be called within the context of ccache. A Makefile is provided to help with installation, testing and building.
